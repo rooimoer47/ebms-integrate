@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ebms
+    username: ebms
+    password: ebms
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  threads:
+    virtual:
+      enabled: true
+
+ebms:
+  cpa-directory: ${CPA_DIRECTORY:config/cpas}
+  host-party-id: ${HOST_PARTY_ID:our-party}
+  host-party-id-type: ${HOST_PARTY_ID_TYPE:}
+  msh-id: ${MSH_ID:msh.ebms.dev}
