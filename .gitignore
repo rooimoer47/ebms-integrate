@@ -1,0 +1,24 @@
+CLAUDE.md
+.claude/
+
+# Maven build output
+target/
+
+# Compiled Java classes
+*.class
+
+# Java packaging artifacts
+*.jar
+*.war
+*.ear
+
+# IntelliJ IDEA (workspace.xml already ignored via .idea/.gitignore)
+*.iml
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
