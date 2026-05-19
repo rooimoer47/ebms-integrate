@@ -191,7 +191,7 @@ Schema managed with Flyway.
 
 | Concern | Choice | Reason |
 |---|---|---|
-| Language | Java 25 (LTS) | Records, sealed classes, virtual threads |
+| Language | Java 21 (LTS) | Records, sealed classes, virtual threads |
 | Framework | Spring Boot 4 (milestone) | Forward-looking for a new project; Spring Framework 7 baseline |
 | Build | Maven | Already established |
 | Database | PostgreSQL | Reliable; native BYTEA for payload storage |
