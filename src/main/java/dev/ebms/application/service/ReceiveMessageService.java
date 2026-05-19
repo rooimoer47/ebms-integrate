@@ -1,11 +1,8 @@
 package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.ReceiveMessageUseCase;
-import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.application.port.out.MessageRepository;
-import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
-import dev.ebms.domain.exception.CpaNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +13,9 @@ import java.util.UUID;
 public class ReceiveMessageService implements ReceiveMessageUseCase {
 
     private final MessageRepository messageRepository;
-    private final CpaRepository cpaRepository;
 
-    public ReceiveMessageService(MessageRepository messageRepository, CpaRepository cpaRepository) {
+    public ReceiveMessageService(MessageRepository messageRepository) {
         this.messageRepository = messageRepository;
-        this.cpaRepository = cpaRepository;
     }
 
     @Override
@@ -32,9 +27,6 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
                     ? Optional.of(buildAck(existing.get()))
                     : Optional.empty();
         }
-
-        Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
-                .orElseThrow(() -> new CpaNotFoundException(message.cpaId()));
 
         messageRepository.save(message);
 

@@ -9,7 +9,6 @@ import dev.ebms.domain.EbmsMessage.Direction;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Payload;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

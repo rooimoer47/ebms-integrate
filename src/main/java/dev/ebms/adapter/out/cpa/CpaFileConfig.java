@@ -1,7 +1,5 @@
 package dev.ebms.adapter.out.cpa;
 
-import java.util.List;
-
 /** Jackson-mapped structure for a YAML CPA file. */
 public class CpaFileConfig {
 
