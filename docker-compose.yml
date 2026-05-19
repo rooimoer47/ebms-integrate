@@ -9,6 +9,26 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ebms -d ebms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ebms
+      SPRING_DATASOURCE_USERNAME: ebms
+      SPRING_DATASOURCE_PASSWORD: ebms
+      CPA_DIRECTORY: /app/config/cpas
+    volumes:
+      - ./config/cpas:/app/config/cpas
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
