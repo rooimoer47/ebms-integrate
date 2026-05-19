@@ -14,11 +14,7 @@ public class HttpMessageTransport implements MessageTransport {
 
     private static final Logger log = LoggerFactory.getLogger(HttpMessageTransport.class);
 
-    private final RestClient restClient;
-
-    public HttpMessageTransport(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
-    }
+    private final RestClient restClient = RestClient.create();
 
     @Override
     public TransportResult send(String url, byte[] body, String contentType) {
