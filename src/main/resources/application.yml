@@ -5,10 +5,10 @@ spring:
     password: ebms
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
   flyway:
-    enabled: false
+    baseline-on-migrate: true
   threads:
     virtual:
       enabled: true
