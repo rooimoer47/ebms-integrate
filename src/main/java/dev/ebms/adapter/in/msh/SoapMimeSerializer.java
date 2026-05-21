@@ -3,11 +3,13 @@ package dev.ebms.adapter.in.msh;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.Payload;
+import jakarta.activation.DataHandler;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -164,7 +166,8 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
         for (Payload payload : message.payloads()) {
             MimeBodyPart payloadPart = new MimeBodyPart();
-            payloadPart.setContent(payload.content(), payload.mimeType());
+            payloadPart.setDataHandler(new DataHandler(
+                    new ByteArrayDataSource(payload.content(), payload.mimeType())));
             payloadPart.setHeader("Content-Id", "<" + payload.contentId() + ">");
             payloadPart.setHeader("Content-Transfer-Encoding", "binary");
             multipart.addBodyPart(payloadPart);

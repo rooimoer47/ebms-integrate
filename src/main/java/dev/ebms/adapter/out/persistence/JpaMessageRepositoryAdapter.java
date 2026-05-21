@@ -7,6 +7,7 @@ import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
 import dev.ebms.domain.Payload;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,7 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     }
 
     @Override
+    @Transactional
     public EbmsMessage save(EbmsMessage message) {
         MessageEntity entity = toEntity(message);
         entity.setCreatedAt(Instant.now());
@@ -35,26 +37,31 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<EbmsMessage> findById(UUID id) {
         return jpa.findById(id).map(this::toDomain);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<EbmsMessage> findByMessageId(String messageId) {
         return jpa.findByMessageId(messageId).map(this::toDomain);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<EbmsMessage> findByDirectionAndStatus(Direction direction, MessageStatus status) {
         return jpa.findByDirectionAndStatus(direction, status).stream().map(this::toDomain).toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<EbmsMessage> findPendingRetries(Instant now) {
         return jpa.findPendingRetries(now).stream().map(this::toDomain).toList();
     }
 
     @Override
+    @Transactional
     public EbmsMessage update(EbmsMessage message) {
         MessageEntity entity = jpa.findById(message.id()).orElseThrow();
         entity.setStatus(message.status());
