@@ -2,6 +2,7 @@ package dev.ebms.adapter.in.msh;
 
 import dev.ebms.application.port.in.ReceiveMessageUseCase;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
+import dev.ebms.application.port.out.OutboundMessageSerializer.SerializedMessage;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.exception.CpaNotFoundException;
 import dev.ebms.domain.exception.MessageParseException;
@@ -42,9 +43,10 @@ public class MshController {
             message = parser.parse(entity.getBody(), contentType);
         } catch (MessageParseException e) {
             log.warn("Failed to parse inbound message: {}", e.getMessage());
+            SerializedMessage error = serializer.serializeError(null, e.getEbmsErrorCode(), e.getMessage());
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.TEXT_XML)
-                    .body(buildSoapFault("InvalidMessage", e.getMessage()).getBytes());
+                    .contentType(MediaType.parseMediaType(error.contentType()))
+                    .body(error.body());
         }
 
         log.info("Received message {} from {} (action: {})",
@@ -55,9 +57,10 @@ public class MshController {
             ack = receiveMessageUseCase.receive(message);
         } catch (CpaNotFoundException e) {
             log.warn("CPA not found for message {}: {}", message.messageId(), e.getMessage());
+            SerializedMessage error = serializer.serializeError(message, "ValueNotRecognized", e.getMessage());
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.TEXT_XML)
-                    .body(buildSoapFault("UnknownCPA", e.getMessage()).getBytes());
+                    .contentType(MediaType.parseMediaType(error.contentType()))
+                    .body(error.body());
         }
 
         if (ack.isPresent()) {
@@ -70,17 +73,4 @@ public class MshController {
         return ResponseEntity.ok().build();
     }
 
-    private String buildSoapFault(String code, String reason) {
-        return """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
-                  <SOAP-ENV:Body>
-                    <SOAP-ENV:Fault>
-                      <faultcode>SOAP-ENV:Client</faultcode>
-                      <faultstring>%s: %s</faultstring>
-                    </SOAP-ENV:Fault>
-                  </SOAP-ENV:Body>
-                </SOAP-ENV:Envelope>
-                """.formatted(code, reason);
-    }
 }

@@ -136,7 +136,7 @@ class EndToEndTest {
     }
 
     @Test
-    void receive_malformedSoap_returns400WithFault() {
+    void receive_malformedSoap_returns400WithErrorList() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.TEXT_XML);
         ResponseEntity<String> response = http.exchange(
@@ -144,7 +144,22 @@ class EndToEndTest {
                 new HttpEntity<>("<not-soap/>", headers), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).contains("Fault");
+        assertThat(response.getBody()).contains("ErrorList");
+        assertThat(response.getBody()).contains("Inconsistent");
+    }
+
+    @Test
+    void receive_unknownCpa_returns400WithErrorList() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_XML);
+        ResponseEntity<String> response = http.exchange(
+                "/ebms/msh", HttpMethod.POST,
+                new HttpEntity<>(soapEnvelope(UUID.randomUUID() + "@partner-a.example.com", "cpa-unknown"), headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("ErrorList");
+        assertThat(response.getBody()).contains("ValueNotRecognized");
     }
 
     @Test
@@ -233,6 +248,10 @@ class EndToEndTest {
     }
 
     private static String soapEnvelope(String messageId) {
+        return soapEnvelope(messageId, "cpa-test");
+    }
+
+    private static String soapEnvelope(String messageId, String cpaId) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
@@ -241,7 +260,7 @@ class EndToEndTest {
                     <eb:MessageHeader SOAP-ENV:mustUnderstand="1" eb:version="2.0">
                       <eb:From><eb:PartyId>partner-a</eb:PartyId></eb:From>
                       <eb:To><eb:PartyId>our-company</eb:PartyId></eb:To>
-                      <eb:CPAId>cpa-test</eb:CPAId>
+                      <eb:CPAId>%s</eb:CPAId>
                       <eb:ConversationId>conv-e2e-001</eb:ConversationId>
                       <eb:Service>OrderService</eb:Service>
                       <eb:Action>NewOrder</eb:Action>
@@ -254,6 +273,6 @@ class EndToEndTest {
                   </SOAP-ENV:Header>
                   <SOAP-ENV:Body/>
                 </SOAP-ENV:Envelope>
-                """.formatted(messageId);
+                """.formatted(cpaId, messageId);
     }
 }

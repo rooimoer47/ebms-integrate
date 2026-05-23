@@ -1,9 +1,12 @@
 package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.ReceiveMessageUseCase;
+import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.application.port.out.MessageRepository;
+import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
+import dev.ebms.domain.exception.CpaNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,9 +21,11 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
     private static final Logger log = LoggerFactory.getLogger(ReceiveMessageService.class);
 
     private final MessageRepository messageRepository;
+    private final CpaRepository cpaRepository;
 
-    public ReceiveMessageService(MessageRepository messageRepository) {
+    public ReceiveMessageService(MessageRepository messageRepository, CpaRepository cpaRepository) {
         this.messageRepository = messageRepository;
+        this.cpaRepository = cpaRepository;
     }
 
     @Override
@@ -30,11 +35,16 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
             return processAcknowledgment(message);
         }
 
-        Optional<EbmsMessage> existing = messageRepository.findByMessageId(message.messageId());
-        if (existing.isPresent()) {
-            return existing.get().ackRequested()
-                    ? Optional.of(buildAck(existing.get()))
-                    : Optional.empty();
+        Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
+                .orElseThrow(() -> new CpaNotFoundException(message.cpaId()));
+
+        if (cpa.duplicateElimination()) {
+            Optional<EbmsMessage> existing = messageRepository.findByMessageId(message.messageId());
+            if (existing.isPresent()) {
+                return existing.get().ackRequested()
+                        ? Optional.of(buildAck(existing.get()))
+                        : Optional.empty();
+            }
         }
 
         messageRepository.save(message);

@@ -4,6 +4,8 @@ import dev.ebms.application.port.out.OutboundMessageSerializer.SerializedMessage
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.Party;
 import dev.ebms.domain.Payload;
+
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
@@ -110,6 +112,43 @@ class SoapMimeSerializerTest {
         assertThat(result.contentType()).containsIgnoringCase("multipart/related");
         String bodyStr = new String(result.body(), StandardCharsets.UTF_8);
         assertThat(bodyStr).contains("cid:doc-001@test").contains("Hello, World!");
+    }
+
+    @Test
+    void serializeError_withContext_includesErrorListAndRefToMessageId() throws Exception {
+        EbmsMessage context = EbmsMessage.newInbound(
+                "orig-001@partner-a.example.com", "conv-001", "cpa-001",
+                Party.of("partner-a"), Party.of("our-company"),
+                "OrderService", "NewOrder",
+                Instant.now(), List.of(), false, null);
+
+        SerializedMessage result = serializer.serializeError(context, "ValueNotRecognized", "CPA not found");
+
+        assertThat(result.contentType()).startsWith("text/xml");
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        XPath xpath = buildXpath();
+
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:ErrorList/@eb:highestSeverity", doc))
+                .isEqualTo("Error");
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:ErrorList/eb:Error/@eb:errorCode", doc))
+                .isEqualTo("ValueNotRecognized");
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:Action", doc))
+                .isEqualTo("MessageError");
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:MessageData/eb:RefToMessageId", doc))
+                .isEqualTo("orig-001@partner-a.example.com");
+    }
+
+    @Test
+    void serializeError_withoutContext_producesErrorListWithNoRefToMessageId() throws Exception {
+        SerializedMessage result = serializer.serializeError(null, "OtherXml", "Failed to parse XML");
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        XPath xpath = buildXpath();
+
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:ErrorList/eb:Error/@eb:errorCode", doc))
+                .isEqualTo("OtherXml");
+        assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:MessageData/eb:RefToMessageId", doc))
+                .isBlank();
     }
 
     private Document parseXml(String xml) throws Exception {

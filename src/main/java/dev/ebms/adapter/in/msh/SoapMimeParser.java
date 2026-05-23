@@ -42,7 +42,9 @@ public class SoapMimeParser {
         } catch (MessageParseException e) {
             throw e;
         } catch (Exception e) {
-            throw new MessageParseException("Failed to parse ebMS message", e);
+            String code = (contentType != null && contentType.toLowerCase().contains("multipart/related"))
+                    ? "MimeRelated" : "OtherXml";
+            throw new MessageParseException("Failed to parse ebMS message", code, e);
         }
     }
 
@@ -161,7 +163,7 @@ public class SoapMimeParser {
 
     private void validateRequired(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new MessageParseException("Required field missing: " + fieldName);
+            throw new MessageParseException("Required field missing: " + fieldName, "Inconsistent");
         }
     }
 
