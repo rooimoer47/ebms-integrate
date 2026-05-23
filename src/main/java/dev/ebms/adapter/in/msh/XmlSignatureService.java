@@ -1,5 +1,6 @@
 package dev.ebms.adapter.in.msh;
 
+import dev.ebms.config.EbmsSecurityProperties;
 import dev.ebms.domain.exception.MessageParseException;
 import org.apache.xml.security.Init;
 import org.apache.xml.security.algorithms.MessageDigestAlgorithm;

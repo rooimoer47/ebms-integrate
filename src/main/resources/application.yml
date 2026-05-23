@@ -22,3 +22,5 @@ ebms:
     keystore-path: ${EBMS_KEYSTORE_PATH:}
     keystore-password: ${EBMS_KEYSTORE_PASSWORD:}
     keystore-alias: ${EBMS_KEYSTORE_ALIAS:ebms}
+    truststore-path: ${EBMS_TRUSTSTORE_PATH:}
+    truststore-password: ${EBMS_TRUSTSTORE_PASSWORD:}

@@ -1,13 +1,22 @@
 package dev.ebms.adapter.out.transport;
 
 import dev.ebms.application.port.out.MessageTransport;
+import dev.ebms.config.EbmsSecurityProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.net.http.HttpClient;
+import java.security.KeyStore;
 
 @Component
 public class HttpMessageTransport implements MessageTransport {
@@ -16,8 +25,24 @@ public class HttpMessageTransport implements MessageTransport {
 
     private final RestClient restClient;
 
-    public HttpMessageTransport(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
+    public HttpMessageTransport(RestClient.Builder restClientBuilder, EbmsSecurityProperties props) {
+        if (props.keystoreConfigured()) {
+            try {
+                SSLContext sslContext = buildSslContext(props);
+                HttpClient httpClient = HttpClient.newBuilder()
+                        .sslContext(sslContext)
+                        .build();
+                this.restClient = restClientBuilder
+                        .requestFactory(new JdkClientHttpRequestFactory(httpClient))
+                        .build();
+                log.info("Outbound transport configured with mTLS client certificate");
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to configure mTLS for outbound transport", e);
+            }
+        } else {
+            this.restClient = restClientBuilder.build();
+            log.info("Outbound transport running without mTLS (no keystore configured)");
+        }
     }
 
     @Override
@@ -39,5 +64,29 @@ public class HttpMessageTransport implements MessageTransport {
             log.warn("Transport error sending to {}: {}", url, e.getMessage());
             return new TransportResult(false, null, null);
         }
+    }
+
+    private static SSLContext buildSslContext(EbmsSecurityProperties props) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        try (FileInputStream fis = new FileInputStream(props.getKeystorePath())) {
+            keyStore.load(fis, props.getKeystorePassword().toCharArray());
+        }
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(keyStore, props.getKeystorePassword().toCharArray());
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        if (props.truststoreConfigured()) {
+            KeyStore trustStore = KeyStore.getInstance("PKCS12");
+            try (FileInputStream fis = new FileInputStream(props.getTruststorePath())) {
+                trustStore.load(fis, props.getTruststorePassword().toCharArray());
+            }
+            tmf.init(trustStore);
+        } else {
+            tmf.init((KeyStore) null);  // JVM default trust store
+        }
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+        return sslContext;
     }
 }
