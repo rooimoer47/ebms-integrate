@@ -103,14 +103,16 @@ class EndToEndTest {
         assertThat(response.getBody()).contains(messageId);
 
         List<?> messages = http.getForEntity("/api/messages?direction=INBOUND", List.class).getBody();
-        Map<?, ?> stored = messages.stream()
+        @SuppressWarnings("unchecked")
+        Map<String, Object> stored = (Map<String, Object>) messages.stream()
                 .map(m -> (Map<?, ?>) m)
                 .filter(m -> messageId.equals(m.get("messageId")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Message not found"));
-        assertThat(stored.get("status")).isEqualTo("RECEIVED");
-        assertThat(stored.get("action")).isEqualTo("NewOrder");
-        assertThat(stored.get("fromPartyId")).isEqualTo("partner-a");
+        assertThat(stored)
+                .containsEntry("status", "RECEIVED")
+                .containsEntry("action", "NewOrder")
+                .containsEntry("fromPartyId", "partner-a");
     }
 
     @Test
@@ -158,7 +160,9 @@ class EndToEndTest {
         ResponseEntity<Map> response = http.postForEntity("/api/messages", request, Map.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().get("status")).isEqualTo("SENT");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = response.getBody();
+        assertThat(body).containsEntry("status", "SENT");
 
         partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
                 .withRequestBody(containing("NewOrder"))
