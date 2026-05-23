@@ -1,5 +1,6 @@
 package dev.ebms.adapter.in.msh;
 
+import dev.ebms.application.port.out.InboundMessageParser;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.Party;
 import dev.ebms.domain.Payload;
@@ -28,7 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 
 @Component
-public class SoapMimeParser {
+public class SoapMimeParser implements InboundMessageParser {
 
     static final String EB_NS = "http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd";
     static final String SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/";
@@ -51,6 +52,16 @@ public class SoapMimeParser {
             String code = (contentType != null && contentType.toLowerCase().contains("multipart/related"))
                     ? "MimeRelated" : "OtherXml";
             throw new MessageParseException("Failed to parse ebMS message", code, e);
+        }
+    }
+
+    @Override
+    public java.util.Optional<EbmsMessage> tryParse(byte[] body, String contentType) {
+        if (body == null || body.length == 0) return java.util.Optional.empty();
+        try {
+            return java.util.Optional.of(parse(body, contentType));
+        } catch (Exception e) {
+            return java.util.Optional.empty();
         }
     }
 

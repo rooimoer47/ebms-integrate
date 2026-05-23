@@ -2,6 +2,7 @@ package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.SendMessageUseCase;
 import dev.ebms.application.port.out.CpaRepository;
+import dev.ebms.application.port.out.InboundMessageParser;
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.application.port.out.MessageTransport;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
@@ -27,16 +28,19 @@ public class SendMessageService implements SendMessageUseCase {
     private final CpaRepository cpaRepository;
     private final MessageTransport transport;
     private final OutboundMessageSerializer serializer;
+    private final InboundMessageParser inboundParser;
 
     @Value("${ebms.msh-id}")
     private String mshId;
 
     public SendMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
-                              MessageTransport transport, OutboundMessageSerializer serializer) {
+                              MessageTransport transport, OutboundMessageSerializer serializer,
+                              InboundMessageParser inboundParser) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.transport = transport;
         this.serializer = serializer;
+        this.inboundParser = inboundParser;
     }
 
     @Override
@@ -69,7 +73,13 @@ public class SendMessageService implements SendMessageUseCase {
 
         if (result.success()) {
             log.info("Message {} sent to {}", message.messageId(), cpa.transportUrl());
-            messageRepository.update(message.withStatus(MessageStatus.SENT));
+            MessageStatus finalStatus = isSynchronousAck(message, result)
+                    ? MessageStatus.ACKED
+                    : MessageStatus.SENT;
+            if (finalStatus == MessageStatus.ACKED) {
+                log.info("Message {} acknowledged synchronously", message.messageId());
+            }
+            messageRepository.update(message.withStatus(finalStatus));
         } else {
             log.warn("Failed to send message {}, scheduling retry", message.messageId());
             int newCount = message.retryCount() + 1;
@@ -80,5 +90,17 @@ public class SendMessageService implements SendMessageUseCase {
                 messageRepository.update(message.withRetry(newCount, nextRetry));
             }
         }
+    }
+
+    private boolean isSynchronousAck(EbmsMessage sent, MessageTransport.TransportResult result) {
+        byte[] body = result.responseBody();
+        if (body == null || body.length == 0) return false;
+        String ct = result.responseContentType() != null
+                ? result.responseContentType().toString()
+                : "text/xml";
+        return inboundParser.tryParse(body, ct)
+                .filter(r -> "Acknowledgment".equals(r.action()))
+                .filter(r -> sent.messageId().equals(r.refToMessageId()))
+                .isPresent();
     }
 }
