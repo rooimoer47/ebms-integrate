@@ -1,6 +1,12 @@
 package dev.ebms.adapter.out.persistence;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 import java.util.UUID;
 
@@ -21,7 +27,6 @@ public class PayloadEntity {
     @Column(name = "mime_type", nullable = false)
     private String mimeType;
 
-    @Lob
     @Column(nullable = false)
     private byte[] content;
 
