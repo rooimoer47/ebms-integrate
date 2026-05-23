@@ -109,8 +109,7 @@ class SoapMimeSerializerTest {
 
         assertThat(result.contentType()).containsIgnoringCase("multipart/related");
         String bodyStr = new String(result.body(), StandardCharsets.UTF_8);
-        assertThat(bodyStr).contains("cid:doc-001@test");
-        assertThat(bodyStr).contains("Hello, World!");
+        assertThat(bodyStr).contains("cid:doc-001@test").contains("Hello, World!");
     }
 
     private Document parseXml(String xml) throws Exception {
