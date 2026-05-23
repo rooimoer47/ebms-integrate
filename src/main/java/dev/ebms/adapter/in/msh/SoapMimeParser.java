@@ -33,6 +33,12 @@ public class SoapMimeParser {
     static final String EB_NS = "http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd";
     static final String SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/";
 
+    private final XmlSignatureService signatureService;
+
+    public SoapMimeParser(XmlSignatureService signatureService) {
+        this.signatureService = signatureService;
+    }
+
     public EbmsMessage parse(byte[] body, String contentType) {
         try {
             if (contentType != null && contentType.toLowerCase().contains("multipart/related")) {
@@ -75,6 +81,8 @@ public class SoapMimeParser {
 
     private EbmsMessage extractMessage(Document doc, List<Payload> payloads) {
         try {
+            signatureService.verify(doc);
+
             XPath xpath = buildXpath();
 
             String messageId = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:MessageData/eb:MessageId", doc);

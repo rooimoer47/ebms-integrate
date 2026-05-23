@@ -4,7 +4,12 @@ import dev.ebms.application.port.out.OutboundMessageSerializer.SerializedMessage
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.Party;
 import dev.ebms.domain.Payload;
+import org.junit.jupiter.api.BeforeAll;
 
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -24,7 +29,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SoapMimeSerializerTest {
 
-    private final SoapMimeSerializer serializer = new SoapMimeSerializer();
+    private final SoapMimeSerializer serializer = new SoapMimeSerializer(XmlSignatureService.disabled());
+
+    static XmlSignatureService signingService;
+
+    @BeforeAll
+    static void loadKeystore() throws Exception {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (InputStream is = SoapMimeSerializerTest.class.getResourceAsStream("/test-keystore.p12")) {
+            ks.load(is, "testpassword".toCharArray());
+        }
+        PrivateKey key = (PrivateKey) ks.getKey("ebms-test", "testpassword".toCharArray());
+        X509Certificate cert = (X509Certificate) ks.getCertificate("ebms-test");
+        signingService = new XmlSignatureService(key, cert);
+    }
 
     @Test
     void serialize_ackMessage_producesTextXmlWithAcknowledgmentElement() throws Exception {
@@ -149,6 +167,21 @@ class SoapMimeSerializerTest {
                 .isEqualTo("OtherXml");
         assertThat(xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:MessageData/eb:RefToMessageId", doc))
                 .isBlank();
+    }
+
+    @Test
+    void serialize_withSigningEnabled_includesSignatureElement() throws Exception {
+        SoapMimeSerializer signingSerializer = new SoapMimeSerializer(signingService);
+        EbmsMessage message = EbmsMessage.newOutbound(
+                "msg-signed@test", "conv-001", "cpa-001",
+                Party.of("our-company"), Party.of("partner-a"),
+                "OrderService", "NewOrder", List.of(), false);
+
+        SerializedMessage result = signingSerializer.serialize(message);
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        assertThat(doc.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature")
+                .getLength()).isEqualTo(1);
     }
 
     private Document parseXml(String xml) throws Exception {

@@ -37,14 +37,26 @@ import static dev.ebms.adapter.in.msh.SoapMimeParser.SOAP_NS;
 public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private static final String XLINK_NS = "http://www.w3.org/1999/xlink";
+    private static final String XMLNS_NS = "http://www.w3.org/2000/xmlns/";
+    private static final String XML_NS = "http://www.w3.org/XML/1998/namespace";
     private static final String ATTR_MUST_UNDERSTAND = "SOAP-ENV:mustUnderstand";
     private static final String ATTR_EB_VERSION = "eb:version";
     private static final String EB_PARTY_ID = "eb:PartyId";
 
+    private final XmlSignatureService signatureService;
+
+    public SoapMimeSerializer(XmlSignatureService signatureService) {
+        this.signatureService = signatureService;
+    }
+
     @Override
     public SerializedMessage serialize(EbmsMessage message) {
         try {
-            String soapXml = buildSoapEnvelope(message);
+            Document doc = buildSoapDocument(message);
+            if (signatureService.isEnabled()) {
+                signatureService.sign(doc);
+            }
+            String soapXml = toXmlString(doc);
 
             if (message.payloads().isEmpty()) {
                 return new SerializedMessage(soapXml.getBytes(), "text/xml; charset=UTF-8");
@@ -56,12 +68,12 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         }
     }
 
-    private String buildSoapEnvelope(EbmsMessage message) throws ParserConfigurationException, TransformerException {
+    private Document buildSoapDocument(EbmsMessage message) throws ParserConfigurationException {
         Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
 
         Element envelope = doc.createElementNS(SOAP_NS, "SOAP-ENV:Envelope");
-        envelope.setAttribute("xmlns:SOAP-ENV", SOAP_NS);
-        envelope.setAttribute("xmlns:eb", EB_NS);
+        envelope.setAttributeNS(XMLNS_NS, "xmlns:SOAP-ENV", SOAP_NS);
+        envelope.setAttributeNS(XMLNS_NS, "xmlns:eb", EB_NS);
         doc.appendChild(envelope);
 
         Element header = doc.createElementNS(SOAP_NS, "SOAP-ENV:Header");
@@ -71,9 +83,9 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
         if (message.ackRequested()) {
             Element ackRequested = doc.createElementNS(EB_NS, "eb:AckRequested");
-            ackRequested.setAttribute(ATTR_MUST_UNDERSTAND, "1");
-            ackRequested.setAttribute(ATTR_EB_VERSION, "2.0");
-            ackRequested.setAttribute("eb:signed", "false");
+            ackRequested.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
+            ackRequested.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
+            ackRequested.setAttributeNS(EB_NS, "eb:signed", "false");
             header.appendChild(ackRequested);
         }
 
@@ -88,18 +100,18 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
             body.appendChild(buildManifest(doc, message));
         }
 
-        return toXmlString(doc);
+        return doc;
     }
 
     private Element buildMessageHeader(Document doc, EbmsMessage message) {
         Element header = doc.createElementNS(EB_NS, "eb:MessageHeader");
-        header.setAttribute(ATTR_MUST_UNDERSTAND, "1");
-        header.setAttribute(ATTR_EB_VERSION, "2.0");
+        header.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
+        header.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
 
         Element from = doc.createElementNS(EB_NS, "eb:From");
         Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         if (message.from().partyIdType() != null) {
-            fromPartyId.setAttribute("eb:type", message.from().partyIdType());
+            fromPartyId.setAttributeNS(EB_NS, "eb:type", message.from().partyIdType());
         }
         fromPartyId.setTextContent(message.from().partyId());
         from.appendChild(fromPartyId);
@@ -108,7 +120,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         Element to = doc.createElementNS(EB_NS, "eb:To");
         Element toPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         if (message.to().partyIdType() != null) {
-            toPartyId.setAttribute("eb:type", message.to().partyIdType());
+            toPartyId.setAttributeNS(EB_NS, "eb:type", message.to().partyIdType());
         }
         toPartyId.setTextContent(message.to().partyId());
         to.appendChild(toPartyId);
@@ -133,8 +145,8 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildAcknowledgmentElement(Document doc, EbmsMessage message) {
         Element ack = doc.createElementNS(EB_NS, "eb:Acknowledgment");
-        ack.setAttribute(ATTR_MUST_UNDERSTAND, "1");
-        ack.setAttribute(ATTR_EB_VERSION, "2.0");
+        ack.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
+        ack.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
         appendText(doc, ack, EB_NS, "eb:Timestamp",
                 DateTimeFormatter.ISO_INSTANT.format(message.timestamp()));
         appendText(doc, ack, EB_NS, "eb:RefToMessageId", message.refToMessageId());
@@ -148,12 +160,12 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildManifest(Document doc, EbmsMessage message) {
         Element manifest = doc.createElementNS(EB_NS, "eb:Manifest");
-        manifest.setAttribute(ATTR_EB_VERSION, "2.0");
+        manifest.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
         for (Payload payload : message.payloads()) {
             Element ref = doc.createElementNS(EB_NS, "eb:Reference");
-            ref.setAttribute("xmlns:xlink", XLINK_NS);
-            ref.setAttribute("xlink:href", "cid:" + payload.contentId());
-            ref.setAttribute("xlink:type", "simple");
+            ref.setAttributeNS(XMLNS_NS, "xmlns:xlink", XLINK_NS);
+            ref.setAttributeNS(XLINK_NS, "xlink:href", "cid:" + payload.contentId());
+            ref.setAttributeNS(XLINK_NS, "xlink:type", "simple");
             manifest.appendChild(ref);
         }
         return manifest;
@@ -195,8 +207,8 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
             Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
 
             Element envelope = doc.createElementNS(SOAP_NS, "SOAP-ENV:Envelope");
-            envelope.setAttribute("xmlns:SOAP-ENV", SOAP_NS);
-            envelope.setAttribute("xmlns:eb", EB_NS);
+            envelope.setAttributeNS(XMLNS_NS, "xmlns:SOAP-ENV", SOAP_NS);
+            envelope.setAttributeNS(XMLNS_NS, "xmlns:eb", EB_NS);
             doc.appendChild(envelope);
 
             Element header = doc.createElementNS(SOAP_NS, "SOAP-ENV:Header");
@@ -206,6 +218,9 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
             envelope.appendChild(doc.createElementNS(SOAP_NS, "SOAP-ENV:Body"));
 
+            if (signatureService.isEnabled()) {
+                signatureService.sign(doc);
+            }
             String xml = toXmlString(doc);
             return new SerializedMessage(xml.getBytes(), "text/xml; charset=UTF-8");
         } catch (Exception e) {
@@ -215,8 +230,8 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildErrorMessageHeader(Document doc, EbmsMessage context) {
         Element msgHeader = doc.createElementNS(EB_NS, "eb:MessageHeader");
-        msgHeader.setAttribute(ATTR_MUST_UNDERSTAND, "1");
-        msgHeader.setAttribute(ATTR_EB_VERSION, "2.0");
+        msgHeader.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
+        msgHeader.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
 
         String fromPartyId = context != null ? context.to().partyId() : "unknown";
         String toPartyId = context != null ? context.from().partyId() : "unknown";
@@ -253,16 +268,16 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildErrorList(Document doc, String errorCode, String description) {
         Element errorList = doc.createElementNS(EB_NS, "eb:ErrorList");
-        errorList.setAttribute(ATTR_MUST_UNDERSTAND, "1");
-        errorList.setAttribute(ATTR_EB_VERSION, "2.0");
-        errorList.setAttribute("eb:highestSeverity", "Error");
+        errorList.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
+        errorList.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
+        errorList.setAttributeNS(EB_NS, "eb:highestSeverity", "Error");
 
         Element error = doc.createElementNS(EB_NS, "eb:Error");
-        error.setAttribute("eb:errorCode", errorCode);
-        error.setAttribute("eb:severity", "Error");
+        error.setAttributeNS(EB_NS, "eb:errorCode", errorCode);
+        error.setAttributeNS(EB_NS, "eb:severity", "Error");
 
         Element desc = doc.createElementNS(EB_NS, "eb:Description");
-        desc.setAttribute("xml:lang", "en");
+        desc.setAttributeNS(XML_NS, "xml:lang", "en");
         desc.setTextContent(description);
         error.appendChild(desc);
 

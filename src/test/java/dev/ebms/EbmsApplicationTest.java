@@ -1,6 +1,7 @@
 package dev.ebms;
 
 import dev.ebms.adapter.in.msh.SoapMimeParser;
+import dev.ebms.adapter.in.msh.XmlSignatureService;
 import dev.ebms.domain.EbmsMessage;
 import org.junit.jupiter.api.Test;
 
@@ -11,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EbmsApplicationTest {
 
-    private final SoapMimeParser parser = new SoapMimeParser();
+    private final SoapMimeParser parser = new SoapMimeParser(XmlSignatureService.disabled());
 
     private static final String SOAP_MESSAGE = """
             <?xml version="1.0" encoding="UTF-8"?>

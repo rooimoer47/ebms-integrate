@@ -18,3 +18,7 @@ ebms:
   host-party-id: ${HOST_PARTY_ID:our-party}
   host-party-id-type: ${HOST_PARTY_ID_TYPE:}
   msh-id: ${MSH_ID:msh.ebms.dev}
+  security:
+    keystore-path: ${EBMS_KEYSTORE_PATH:}
+    keystore-password: ${EBMS_KEYSTORE_PASSWORD:}
+    keystore-alias: ${EBMS_KEYSTORE_ALIAS:ebms}
