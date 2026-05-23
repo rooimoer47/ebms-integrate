@@ -47,7 +47,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
             return buildMultipart(soapXml, message);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize ebMS message", e);
+            throw new IllegalStateException("Failed to serialize ebMS message", e);
         }
     }
 
