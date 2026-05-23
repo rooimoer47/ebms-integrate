@@ -90,6 +90,13 @@ public class SoapMimeParser {
                     "/soap:Envelope/soap:Header/eb:AckRequested", doc, XPathConstants.NODESET);
             boolean ackRequested = ackRequestedNodes.getLength() > 0;
 
+            String refToMessageId = xpath.evaluate(
+                    "/soap:Envelope/soap:Header/eb:Acknowledgment/eb:RefToMessageId", doc);
+            if (refToMessageId == null || refToMessageId.isBlank()) {
+                refToMessageId = xpath.evaluate(
+                        "/soap:Envelope/soap:Header/eb:MessageHeader/eb:MessageData/eb:RefToMessageId", doc);
+            }
+
             validateRequired(messageId, "MessageId");
             validateRequired(conversationId, "ConversationId");
             validateRequired(cpaId, "CPAId");
@@ -105,7 +112,8 @@ public class SoapMimeParser {
             return EbmsMessage.newInbound(messageId, conversationId, cpaId,
                     new Party(fromPartyId, nullIfBlank(fromPartyType)),
                     new Party(toPartyId, nullIfBlank(toPartyType)),
-                    service, action, timestamp, payloads, ackRequested);
+                    service, action, timestamp, payloads, ackRequested,
+                    nullIfBlank(refToMessageId));
 
         } catch (MessageParseException e) {
             throw e;

@@ -2,6 +2,7 @@ package dev.ebms.application.service;
 
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.domain.EbmsMessage;
+import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,12 +74,67 @@ class ReceiveMessageServiceTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void receive_acknowledgment_marksOriginalMessageAsAcked() {
+        EbmsMessage original = outboundSent("msg-010@test");
+        EbmsMessage ack = inboundAck("ack-010@partner.com", "msg-010@test");
+        when(messageRepository.findByMessageId("msg-010@test")).thenReturn(Optional.of(original));
+        when(messageRepository.update(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<EbmsMessage> result = service.receive(ack);
+
+        assertThat(result).isEmpty();
+        verify(messageRepository).update(argThat(m -> m.status() == MessageStatus.ACKED));
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void receive_duplicateAcknowledgment_isIdempotent() {
+        EbmsMessage alreadyAcked = outboundSent("msg-011@test").withStatus(MessageStatus.ACKED);
+        EbmsMessage ack = inboundAck("ack-011@partner.com", "msg-011@test");
+        when(messageRepository.findByMessageId("msg-011@test")).thenReturn(Optional.of(alreadyAcked));
+
+        Optional<EbmsMessage> result = service.receive(ack);
+
+        assertThat(result).isEmpty();
+        verify(messageRepository, never()).update(any());
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void receive_acknowledgmentForUnknownMessage_returnsEmpty() {
+        EbmsMessage ack = inboundAck("ack-012@partner.com", "unknown@test");
+        when(messageRepository.findByMessageId("unknown@test")).thenReturn(Optional.empty());
+
+        Optional<EbmsMessage> result = service.receive(ack);
+
+        assertThat(result).isEmpty();
+        verify(messageRepository, never()).update(any());
+        verify(messageRepository, never()).save(any());
+    }
+
     private static EbmsMessage inbound(String messageId, boolean ackRequested) {
         return EbmsMessage.newInbound(
                 messageId, "conv-001", "cpa-001",
                 Party.of("partner-a"), Party.of("our-company"),
                 "OrderService", "NewOrder",
                 Instant.parse("2025-05-18T12:00:00Z"),
-                List.of(), ackRequested);
+                List.of(), ackRequested, null);
+    }
+
+    private static EbmsMessage inboundAck(String ackMessageId, String refToMessageId) {
+        return EbmsMessage.newInbound(
+                ackMessageId, "conv-001", "cpa-001",
+                Party.of("partner-a"), Party.of("our-company"),
+                "urn:oasis:names:tc:ebxml-msg:service", "Acknowledgment",
+                Instant.now(), List.of(), false, refToMessageId);
+    }
+
+    private static EbmsMessage outboundSent(String messageId) {
+        return EbmsMessage.newOutbound(
+                messageId, "conv-001", "cpa-001",
+                Party.of("our-company"), Party.of("partner-a"),
+                "OrderService", "NewOrder",
+                List.of(), true).withStatus(MessageStatus.SENT);
     }
 }

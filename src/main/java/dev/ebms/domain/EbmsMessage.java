@@ -37,10 +37,10 @@ public record EbmsMessage(
     public static EbmsMessage newInbound(String messageId, String conversationId, String cpaId,
                                          Party from, Party to, String service, String action,
                                          Instant timestamp, List<Payload> payloads,
-                                         boolean ackRequested) {
+                                         boolean ackRequested, String refToMessageId) {
         return new EbmsMessage(UUID.randomUUID(), messageId, conversationId, cpaId, from, to,
                 service, action, timestamp, payloads, Direction.INBOUND, MessageStatus.RECEIVED,
-                0, null, ackRequested, null);
+                0, null, ackRequested, refToMessageId);
     }
 
     public static EbmsMessage newOutbound(String messageId, String conversationId, String cpaId,

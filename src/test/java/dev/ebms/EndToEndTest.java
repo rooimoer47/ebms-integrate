@@ -169,6 +169,69 @@ class EndToEndTest {
                 .withHeader("Content-Type", containing("text/xml")));
     }
 
+    @Test
+    void receive_acknowledgment_transitionsOutboundMessageToAcked() {
+        Map<String, Object> request = Map.of(
+                "cpaId", "cpa-test",
+                "conversationId", UUID.randomUUID().toString(),
+                "service", "OrderService",
+                "action", "NewOrder",
+                "payloads", List.of()
+        );
+        ResponseEntity<Map> sendResponse = http.postForEntity("/api/messages", request, Map.class);
+        assertThat(sendResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> sent = sendResponse.getBody();
+        assertThat(sent).containsEntry("status", "SENT");
+        String sentMessageId = (String) sent.get("messageId");
+        String sentId = (String) sent.get("id");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_XML);
+        String ackEnvelope = acknowledgmentEnvelope(sentMessageId);
+        ResponseEntity<String> ackResponse = http.exchange(
+                "/ebms/msh", HttpMethod.POST,
+                new HttpEntity<>(ackEnvelope, headers), String.class);
+
+        assertThat(ackResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> updated = http.getForObject("/api/messages/" + sentId, Map.class);
+        assertThat(updated).containsEntry("status", "ACKED");
+    }
+
+    private static String acknowledgmentEnvelope(String refToMessageId) {
+        String ackMessageId = UUID.randomUUID() + "@partner-a.example.com";
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+                                   xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd">
+                  <SOAP-ENV:Header>
+                    <eb:MessageHeader SOAP-ENV:mustUnderstand="1" eb:version="2.0">
+                      <eb:From><eb:PartyId>partner-a</eb:PartyId></eb:From>
+                      <eb:To><eb:PartyId>our-company</eb:PartyId></eb:To>
+                      <eb:CPAId>cpa-test</eb:CPAId>
+                      <eb:ConversationId>conv-ack-001</eb:ConversationId>
+                      <eb:Service>urn:oasis:names:tc:ebxml-msg:service</eb:Service>
+                      <eb:Action>Acknowledgment</eb:Action>
+                      <eb:MessageData>
+                        <eb:MessageId>%s</eb:MessageId>
+                        <eb:Timestamp>%s</eb:Timestamp>
+                        <eb:RefToMessageId>%s</eb:RefToMessageId>
+                      </eb:MessageData>
+                    </eb:MessageHeader>
+                    <eb:Acknowledgment SOAP-ENV:mustUnderstand="1" eb:version="2.0">
+                      <eb:Timestamp>%s</eb:Timestamp>
+                      <eb:RefToMessageId>%s</eb:RefToMessageId>
+                      <eb:From><eb:PartyId>partner-a</eb:PartyId></eb:From>
+                    </eb:Acknowledgment>
+                  </SOAP-ENV:Header>
+                  <SOAP-ENV:Body/>
+                </SOAP-ENV:Envelope>
+                """.formatted(ackMessageId, java.time.Instant.now(), refToMessageId,
+                java.time.Instant.now(), refToMessageId);
+    }
+
     private static String soapEnvelope(String messageId) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
