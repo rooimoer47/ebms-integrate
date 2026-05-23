@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cpa:CollaborationProtocolAgreement
+    xmlns:cpa="http://www.oasis-open.org/committees/ebxml-cppa/schema/cpp-cpa-2_0.xsd"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    cpa:cpaid="cpa-partner-a">
+
+  <cpa:Status cpa:value="agreed"/>
+
+  <cpa:PartyInfo>
+    <cpa:PartyId cpa:type="urn:example:partyIdType">our-company</cpa:PartyId>
+    <cpa:PartyName>Our Company</cpa:PartyName>
+    <cpa:Transport cpa:transportId="transport-our">
+      <cpa:TransportReceiver>
+        <cpa:Endpoint cpa:type="allPurpose"
+                      xlink:href="https://our-company.example.com/ebms/msh"
+                      xlink:type="simple"/>
+        <cpa:TransportProtocol cpa:version="1.1">HTTP</cpa:TransportProtocol>
+      </cpa:TransportReceiver>
+    </cpa:Transport>
+    <cpa:CollaborationRole cpa:id="role-sender">
+      <cpa:ServiceBinding cpa:channelId="transport-our" cpa:packageId="packaging-1">
+        <cpa:Service>OrderService</cpa:Service>
+        <cpa:CanSend>
+          <cpa:ThisPartyActionBinding cpa:action="NewOrder" cpa:id="bind-1" cpa:packageId="packaging-1">
+            <cpa:ReliableMessaging>
+              <cpa:Retries>3</cpa:Retries>
+              <cpa:RetryInterval>PT60S</cpa:RetryInterval>
+              <cpa:MessageOrderSemantics>NotGuaranteed</cpa:MessageOrderSemantics>
+              <cpa:DuplicateElimination/>
+            </cpa:ReliableMessaging>
+          </cpa:ThisPartyActionBinding>
+        </cpa:CanSend>
+      </cpa:ServiceBinding>
+    </cpa:CollaborationRole>
+  </cpa:PartyInfo>
+
+  <cpa:PartyInfo>
+    <cpa:PartyId cpa:type="urn:example:partyIdType">partner-a</cpa:PartyId>
+    <cpa:PartyName>Partner A</cpa:PartyName>
+    <cpa:Transport cpa:transportId="transport-partner">
+      <cpa:TransportReceiver>
+        <cpa:Endpoint cpa:type="allPurpose"
+                      xlink:href="https://partner-a.example.com/ebms/msh"
+                      xlink:type="simple"/>
+        <cpa:TransportProtocol cpa:version="1.1">HTTP</cpa:TransportProtocol>
+      </cpa:TransportReceiver>
+    </cpa:Transport>
+  </cpa:PartyInfo>
+
+</cpa:CollaborationProtocolAgreement>

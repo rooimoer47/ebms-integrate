@@ -28,10 +28,15 @@ public class YamlCpaRepository implements CpaRepository {
 
     private final Map<String, Cpa> cpas = new ConcurrentHashMap<>();
     private final Path cpaDirectory;
+    private final String ourPartyId;
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
+    private final CpaXmlParser xmlParser = new CpaXmlParser();
 
-    public YamlCpaRepository(@Value("${ebms.cpa-directory}") String cpaDirectory) {
+    public YamlCpaRepository(
+            @Value("${ebms.cpa-directory}") String cpaDirectory,
+            @Value("${ebms.host-party-id:}") String ourPartyId) {
         this.cpaDirectory = Path.of(cpaDirectory);
+        this.ourPartyId = ourPartyId;
     }
 
     @PostConstruct
@@ -42,7 +47,10 @@ public class YamlCpaRepository implements CpaRepository {
             return;
         }
         try (Stream<Path> files = Files.list(cpaDirectory)) {
-            files.filter(p -> p.toString().endsWith(".yml") || p.toString().endsWith(".yaml"))
+            files.filter(p -> {
+                        String name = p.toString();
+                        return name.endsWith(".yml") || name.endsWith(".yaml") || name.endsWith(".xml");
+                    })
                     .forEach(this::loadFile);
         } catch (IOException e) {
             log.error("Failed to read CPA directory: {}", cpaDirectory, e);
@@ -62,20 +70,25 @@ public class YamlCpaRepository implements CpaRepository {
 
     private void loadFile(Path file) {
         try {
-            CpaFileConfig config = yaml.readValue(file.toFile(), CpaFileConfig.class);
-            Cpa cpa = new Cpa(
-                    config.cpaId,
-                    new Party(config.fromParty.partyId, config.fromParty.partyIdType),
-                    new Party(config.toParty.partyId, config.toParty.partyIdType),
-                    config.transportUrl,
-                    config.ackRequested,
-                    config.duplicateElimination,
-                    config.retries,
-                    Duration.ofSeconds(config.retryIntervalSeconds)
-            );
+            Cpa cpa;
+            if (file.toString().endsWith(".xml")) {
+                cpa = xmlParser.parse(file, ourPartyId);
+            } else {
+                CpaFileConfig config = yaml.readValue(file.toFile(), CpaFileConfig.class);
+                cpa = new Cpa(
+                        config.cpaId,
+                        new Party(config.fromParty.partyId, config.fromParty.partyIdType),
+                        new Party(config.toParty.partyId, config.toParty.partyIdType),
+                        config.transportUrl,
+                        config.ackRequested,
+                        config.duplicateElimination,
+                        config.retries,
+                        Duration.ofSeconds(config.retryIntervalSeconds)
+                );
+            }
             cpas.put(cpa.cpaId(), cpa);
             log.debug("Loaded CPA {} from {}", cpa.cpaId(), file.getFileName());
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Failed to parse CPA file: {}", file, e);
         }
     }
