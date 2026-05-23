@@ -35,6 +35,9 @@ import static dev.ebms.adapter.in.msh.SoapMimeParser.SOAP_NS;
 public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private static final String XLINK_NS = "http://www.w3.org/1999/xlink";
+    private static final String ATTR_MUST_UNDERSTAND = "SOAP-ENV:mustUnderstand";
+    private static final String ATTR_EB_VERSION = "eb:version";
+    private static final String EB_PARTY_ID = "eb:PartyId";
 
     @Override
     public SerializedMessage serialize(EbmsMessage message) {
@@ -66,8 +69,8 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
         if (message.ackRequested()) {
             Element ackRequested = doc.createElementNS(EB_NS, "eb:AckRequested");
-            ackRequested.setAttribute("SOAP-ENV:mustUnderstand", "1");
-            ackRequested.setAttribute("eb:version", "2.0");
+            ackRequested.setAttribute(ATTR_MUST_UNDERSTAND, "1");
+            ackRequested.setAttribute(ATTR_EB_VERSION, "2.0");
             ackRequested.setAttribute("eb:signed", "false");
             header.appendChild(ackRequested);
         }
@@ -88,11 +91,11 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildMessageHeader(Document doc, EbmsMessage message) {
         Element header = doc.createElementNS(EB_NS, "eb:MessageHeader");
-        header.setAttribute("SOAP-ENV:mustUnderstand", "1");
-        header.setAttribute("eb:version", "2.0");
+        header.setAttribute(ATTR_MUST_UNDERSTAND, "1");
+        header.setAttribute(ATTR_EB_VERSION, "2.0");
 
         Element from = doc.createElementNS(EB_NS, "eb:From");
-        Element fromPartyId = doc.createElementNS(EB_NS, "eb:PartyId");
+        Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         if (message.from().partyIdType() != null) {
             fromPartyId.setAttribute("eb:type", message.from().partyIdType());
         }
@@ -101,7 +104,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         header.appendChild(from);
 
         Element to = doc.createElementNS(EB_NS, "eb:To");
-        Element toPartyId = doc.createElementNS(EB_NS, "eb:PartyId");
+        Element toPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         if (message.to().partyIdType() != null) {
             toPartyId.setAttribute("eb:type", message.to().partyIdType());
         }
@@ -128,13 +131,13 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildAcknowledgmentElement(Document doc, EbmsMessage message) {
         Element ack = doc.createElementNS(EB_NS, "eb:Acknowledgment");
-        ack.setAttribute("SOAP-ENV:mustUnderstand", "1");
-        ack.setAttribute("eb:version", "2.0");
+        ack.setAttribute(ATTR_MUST_UNDERSTAND, "1");
+        ack.setAttribute(ATTR_EB_VERSION, "2.0");
         appendText(doc, ack, EB_NS, "eb:Timestamp",
                 DateTimeFormatter.ISO_INSTANT.format(message.timestamp()));
         appendText(doc, ack, EB_NS, "eb:RefToMessageId", message.refToMessageId());
         Element from = doc.createElementNS(EB_NS, "eb:From");
-        Element fromPartyId = doc.createElementNS(EB_NS, "eb:PartyId");
+        Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         fromPartyId.setTextContent(message.from().partyId());
         from.appendChild(fromPartyId);
         ack.appendChild(from);
@@ -143,7 +146,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
     private Element buildManifest(Document doc, EbmsMessage message) {
         Element manifest = doc.createElementNS(EB_NS, "eb:Manifest");
-        manifest.setAttribute("eb:version", "2.0");
+        manifest.setAttribute(ATTR_EB_VERSION, "2.0");
         for (Payload payload : message.payloads()) {
             Element ref = doc.createElementNS(EB_NS, "eb:Reference");
             ref.setAttribute("xmlns:xlink", XLINK_NS);
