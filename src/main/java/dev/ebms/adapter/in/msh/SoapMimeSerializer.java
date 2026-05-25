@@ -3,6 +3,8 @@ package dev.ebms.adapter.in.msh;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.Payload;
+
+import java.security.cert.X509Certificate;
 import jakarta.activation.DataHandler;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -44,25 +47,34 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
     private static final String EB_PARTY_ID = "eb:PartyId";
 
     private final XmlSignatureService signatureService;
+    private final XmlEncryptionService encryptionService;
 
-    public SoapMimeSerializer(XmlSignatureService signatureService) {
+    public SoapMimeSerializer(XmlSignatureService signatureService,
+                               XmlEncryptionService encryptionService) {
         this.signatureService = signatureService;
+        this.encryptionService = encryptionService;
     }
 
     @Override
-    public SerializedMessage serialize(EbmsMessage message) {
+    public SerializedMessage serialize(EbmsMessage message, X509Certificate recipientCert) {
         try {
             Document doc = buildSoapDocument(message);
             if (signatureService.isEnabled()) {
                 signatureService.sign(doc);
             }
+
+            List<Payload> payloads = message.payloads();
+            if (recipientCert != null && !payloads.isEmpty()) {
+                payloads = encryptionService.encryptPayloads(doc, payloads, recipientCert);
+            }
+
             String soapXml = toXmlString(doc);
 
-            if (message.payloads().isEmpty()) {
+            if (payloads.isEmpty()) {
                 return new SerializedMessage(soapXml.getBytes(), "text/xml; charset=UTF-8");
             }
 
-            return buildMultipart(soapXml, message);
+            return buildMultipart(soapXml, payloads);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize ebMS message", e);
         }
@@ -171,7 +183,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         return manifest;
     }
 
-    private SerializedMessage buildMultipart(String soapXml, EbmsMessage message)
+    private SerializedMessage buildMultipart(String soapXml, List<Payload> payloads)
             throws MessagingException, IOException {
         MimeMultipart multipart = new MimeMultipart("related; type=\"text/xml\"");
 
@@ -181,7 +193,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         soapPart.setHeader("Content-Transfer-Encoding", "8bit");
         multipart.addBodyPart(soapPart);
 
-        for (Payload payload : message.payloads()) {
+        for (Payload payload : payloads) {
             MimeBodyPart payloadPart = new MimeBodyPart();
             payloadPart.setDataHandler(new DataHandler(
                     new ByteArrayDataSource(payload.content(), payload.mimeType())));

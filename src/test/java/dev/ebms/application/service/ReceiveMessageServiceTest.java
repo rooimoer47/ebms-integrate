@@ -157,7 +157,7 @@ class ReceiveMessageServiceTest {
     private static Cpa cpa(boolean duplicateElimination) {
         return new Cpa("cpa-001", Party.of("our-company"), Party.of("partner-a"),
                 "http://partner-a.example.com/ebms/msh", true, duplicateElimination,
-                3, Duration.ofSeconds(60));
+                3, Duration.ofSeconds(60), null);
     }
 
     private static EbmsMessage outboundSent(String messageId) {

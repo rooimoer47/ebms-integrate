@@ -11,9 +11,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +61,24 @@ public class YamlCpaRepository implements CpaRepository {
         log.info("Loaded {} CPA(s) from {}", cpas.size(), cpaDirectory);
     }
 
+    private X509Certificate loadCertFromPath(String certPath, Path cpaFile) {
+        if (certPath == null || certPath.isBlank()) return null;
+        Path resolved = cpaFile.getParent() != null
+                ? cpaFile.getParent().resolve(certPath)
+                : Path.of(certPath);
+        try {
+            byte[] bytes = Files.readAllBytes(resolved);
+            // Strip PEM headers if present
+            String pem = new String(bytes).replaceAll("-----[^-]+-----", "").replaceAll("\\s+", "");
+            byte[] der = pem.isEmpty() ? bytes : java.util.Base64.getDecoder().decode(pem);
+            return (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(der));
+        } catch (Exception e) {
+            log.warn("Failed to load recipient cert from {}: {}", resolved, e.getMessage());
+            return null;
+        }
+    }
+
     @Override
     public Optional<Cpa> findByCpaId(String cpaId) {
         return Optional.ofNullable(cpas.get(cpaId));
@@ -75,6 +96,7 @@ public class YamlCpaRepository implements CpaRepository {
                 cpa = xmlParser.parse(file, ourPartyId);
             } else {
                 CpaFileConfig config = yaml.readValue(file.toFile(), CpaFileConfig.class);
+                X509Certificate cert = loadCertFromPath(config.recipientCertPath, file);
                 cpa = new Cpa(
                         config.cpaId,
                         new Party(config.fromParty.partyId, config.fromParty.partyIdType),
@@ -83,7 +105,8 @@ public class YamlCpaRepository implements CpaRepository {
                         config.ackRequested,
                         config.duplicateElimination,
                         config.retries,
-                        Duration.ofSeconds(config.retryIntervalSeconds)
+                        Duration.ofSeconds(config.retryIntervalSeconds),
+                        cert
                 );
             }
             cpas.put(cpa.cpaId(), cpa);

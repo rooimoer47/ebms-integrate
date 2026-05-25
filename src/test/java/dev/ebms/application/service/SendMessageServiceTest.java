@@ -49,7 +49,7 @@ class SendMessageServiceTest {
     @Test
     void attemptSend_success_noResponseBody_marksAsSent() {
         EbmsMessage msg = outbound("msg-001@test");
-        when(serializer.serialize(msg)).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
         when(transport.send(any(), any(), any()))
                 .thenReturn(new TransportResult(true, new byte[0], null));
 
@@ -64,7 +64,7 @@ class SendMessageServiceTest {
     void attemptSend_responseContainsMatchingAck_marksAsAcked() {
         EbmsMessage msg = outbound("msg-002@test");
         EbmsMessage ack = ack("msg-002@test");
-        when(serializer.serialize(msg)).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
         when(transport.send(any(), any(), any()))
                 .thenReturn(new TransportResult(true, new byte[]{60}, MediaType.TEXT_XML));
         when(inboundParser.tryParse(any(), any())).thenReturn(Optional.of(ack));
@@ -80,7 +80,7 @@ class SendMessageServiceTest {
     void attemptSend_responseContainsAckForDifferentMessage_marksAsSent() {
         EbmsMessage msg = outbound("msg-003@test");
         EbmsMessage ack = ack("other-msg@test");
-        when(serializer.serialize(msg)).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
         when(transport.send(any(), any(), any()))
                 .thenReturn(new TransportResult(true, new byte[]{60}, MediaType.TEXT_XML));
         when(inboundParser.tryParse(any(), any())).thenReturn(Optional.of(ack));
@@ -95,7 +95,7 @@ class SendMessageServiceTest {
     @Test
     void attemptSend_failure_schedulesRetry() {
         EbmsMessage msg = outbound("msg-004@test");
-        when(serializer.serialize(msg)).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
         when(transport.send(any(), any(), any()))
                 .thenReturn(new TransportResult(false, null, null));
 
@@ -124,6 +124,6 @@ class SendMessageServiceTest {
         return new Cpa("cpa-001",
                 Party.of("our-company"), Party.of("partner-a"),
                 "http://partner-a.example.com/ebms/msh",
-                true, true, 3, Duration.ofSeconds(60));
+                true, true, 3, Duration.ofSeconds(60), null);
     }
 }

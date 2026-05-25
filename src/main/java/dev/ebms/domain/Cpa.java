@@ -1,5 +1,6 @@
 package dev.ebms.domain;
 
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 
 public record Cpa(
@@ -10,5 +11,6 @@ public record Cpa(
         boolean ackRequested,
         boolean duplicateElimination,
         int retries,
-        Duration retryInterval
+        Duration retryInterval,
+        X509Certificate recipientCert
 ) {}

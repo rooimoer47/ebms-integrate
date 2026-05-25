@@ -29,7 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SoapMimeSerializerTest {
 
-    private final SoapMimeSerializer serializer = new SoapMimeSerializer(XmlSignatureService.disabled());
+    private final SoapMimeSerializer serializer = new SoapMimeSerializer(
+            XmlSignatureService.disabled(), XmlEncryptionService.disabled());
 
     static XmlSignatureService signingService;
 
@@ -51,7 +52,7 @@ class SoapMimeSerializerTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "orig-msg-001@partner-a.example.com");
 
-        SerializedMessage result = serializer.serialize(ack);
+        SerializedMessage result = serializer.serialize(ack, null);
 
         assertThat(result.contentType()).startsWith("text/xml");
 
@@ -73,7 +74,7 @@ class SoapMimeSerializerTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "orig-002@partner-a.example.com");
 
-        SerializedMessage result = serializer.serialize(ack);
+        SerializedMessage result = serializer.serialize(ack, null);
 
         assertThat(new String(result.body(), StandardCharsets.UTF_8)).doesNotContain("Manifest");
     }
@@ -85,7 +86,7 @@ class SoapMimeSerializerTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "OrderService", "NewOrder", List.of(), false);
 
-        SerializedMessage result = serializer.serialize(message);
+        SerializedMessage result = serializer.serialize(message, null);
 
         assertThat(result.contentType()).startsWith("text/xml");
 
@@ -107,7 +108,7 @@ class SoapMimeSerializerTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "OrderService", "NewOrder", List.of(), true);
 
-        SerializedMessage result = serializer.serialize(message);
+        SerializedMessage result = serializer.serialize(message, null);
 
         Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
         XPath xpath = buildXpath();
@@ -125,7 +126,7 @@ class SoapMimeSerializerTest {
                 "OrderService", "NewOrder",
                 List.of(new Payload("doc-001@test", "text/plain", payloadContent)), false);
 
-        SerializedMessage result = serializer.serialize(message);
+        SerializedMessage result = serializer.serialize(message, null);
 
         assertThat(result.contentType()).containsIgnoringCase("multipart/related");
         String bodyStr = new String(result.body(), StandardCharsets.UTF_8);
@@ -171,13 +172,14 @@ class SoapMimeSerializerTest {
 
     @Test
     void serialize_withSigningEnabled_includesSignatureElement() throws Exception {
-        SoapMimeSerializer signingSerializer = new SoapMimeSerializer(signingService);
+        SoapMimeSerializer signingSerializer = new SoapMimeSerializer(
+                signingService, XmlEncryptionService.disabled());
         EbmsMessage message = EbmsMessage.newOutbound(
                 "msg-signed@test", "conv-001", "cpa-001",
                 Party.of("our-company"), Party.of("partner-a"),
                 "OrderService", "NewOrder", List.of(), false);
 
-        SerializedMessage result = signingSerializer.serialize(message);
+        SerializedMessage result = signingSerializer.serialize(message, null);
 
         Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
         assertThat(doc.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature")

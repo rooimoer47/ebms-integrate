@@ -11,6 +11,8 @@ public class CpaFileConfig {
     public boolean duplicateElimination;
     public int retries = 3;
     public long retryIntervalSeconds = 60;
+    /** Optional path to the partner's X.509 certificate (PEM or DER) for payload encryption. */
+    public String recipientCertPath;
 
     public static class PartyConfig {
         public String partyId;

@@ -35,9 +35,12 @@ public class SoapMimeParser implements InboundMessageParser {
     static final String SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/";
 
     private final XmlSignatureService signatureService;
+    private final XmlEncryptionService encryptionService;
 
-    public SoapMimeParser(XmlSignatureService signatureService) {
+    public SoapMimeParser(XmlSignatureService signatureService,
+                           XmlEncryptionService encryptionService) {
         this.signatureService = signatureService;
+        this.encryptionService = encryptionService;
     }
 
     public EbmsMessage parse(byte[] body, String contentType) {
@@ -93,6 +96,7 @@ public class SoapMimeParser implements InboundMessageParser {
     private EbmsMessage extractMessage(Document doc, List<Payload> payloads) {
         try {
             signatureService.verify(doc);
+            List<Payload> finalPayloads = encryptionService.decryptPayloads(doc, payloads);
 
             XPath xpath = buildXpath();
 
@@ -133,7 +137,7 @@ public class SoapMimeParser implements InboundMessageParser {
             return EbmsMessage.newInbound(messageId, conversationId, cpaId,
                     new Party(fromPartyId, nullIfBlank(fromPartyType)),
                     new Party(toPartyId, nullIfBlank(toPartyType)),
-                    service, action, timestamp, payloads, ackRequested,
+                    service, action, timestamp, finalPayloads, ackRequested,
                     nullIfBlank(refToMessageId));
 
         } catch (MessageParseException e) {

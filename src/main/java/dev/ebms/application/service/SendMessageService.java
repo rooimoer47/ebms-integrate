@@ -67,7 +67,7 @@ public class SendMessageService implements SendMessageUseCase {
     }
 
     void attemptSend(EbmsMessage message, Cpa cpa) {
-        OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(message);
+        OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(message, cpa.recipientCert());
         MessageTransport.TransportResult result = transport.send(cpa.transportUrl(),
                 serialized.body(), serialized.contentType());
 

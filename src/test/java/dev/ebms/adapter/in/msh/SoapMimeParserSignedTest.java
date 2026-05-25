@@ -30,8 +30,8 @@ class SoapMimeParserSignedTest {
         PrivateKey key = (PrivateKey) ks.getKey("ebms-test", "testpassword".toCharArray());
         X509Certificate cert = (X509Certificate) ks.getCertificate("ebms-test");
         XmlSignatureService signatureService = new XmlSignatureService(key, cert);
-        parser = new SoapMimeParser(signatureService);
-        serializer = new SoapMimeSerializer(signatureService);
+        parser = new SoapMimeParser(signatureService, XmlEncryptionService.disabled());
+        serializer = new SoapMimeSerializer(signatureService, XmlEncryptionService.disabled());
     }
 
     @Test
@@ -41,7 +41,7 @@ class SoapMimeParserSignedTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "OrderService", "NewOrder", List.of(), false);
 
-        byte[] signed = serializer.serialize(outbound).body();
+        byte[] signed = serializer.serialize(outbound, null).body();
         EbmsMessage parsed = parser.parse(signed, "text/xml");
 
         assertThat(parsed.messageId()).isEqualTo("msg-001@test");
@@ -55,7 +55,7 @@ class SoapMimeParserSignedTest {
                 Party.of("our-company"), Party.of("partner-a"),
                 "OrderService", "NewOrder", List.of(), false);
 
-        byte[] signed = serializer.serialize(outbound).body();
+        byte[] signed = serializer.serialize(outbound, null).body();
         String body = new String(signed, StandardCharsets.UTF_8)
                 .replace("NewOrder", "TamperedAction");
 

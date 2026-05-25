@@ -64,7 +64,7 @@ public class MshController {
         }
 
         if (ack.isPresent()) {
-            OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(ack.get());
+            OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(ack.get(), null);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(serialized.contentType()))
                     .body(serialized.body());
