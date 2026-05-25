@@ -20,18 +20,24 @@ public record EbmsMessage(
         int retryCount,
         Instant nextRetryAt,
         boolean ackRequested,
-        String refToMessageId
+        String refToMessageId,
+        boolean processed
 ) {
     public enum Direction { INBOUND, OUTBOUND }
 
     public EbmsMessage withStatus(MessageStatus newStatus) {
         return new EbmsMessage(id, messageId, conversationId, cpaId, from, to, service, action,
-                timestamp, payloads, direction, newStatus, retryCount, nextRetryAt, ackRequested, refToMessageId);
+                timestamp, payloads, direction, newStatus, retryCount, nextRetryAt, ackRequested, refToMessageId, processed);
     }
 
     public EbmsMessage withRetry(int newRetryCount, Instant newNextRetryAt) {
         return new EbmsMessage(id, messageId, conversationId, cpaId, from, to, service, action,
-                timestamp, payloads, direction, status, newRetryCount, newNextRetryAt, ackRequested, refToMessageId);
+                timestamp, payloads, direction, status, newRetryCount, newNextRetryAt, ackRequested, refToMessageId, processed);
+    }
+
+    public EbmsMessage withProcessed(boolean newProcessed) {
+        return new EbmsMessage(id, messageId, conversationId, cpaId, from, to, service, action,
+                timestamp, payloads, direction, status, retryCount, nextRetryAt, ackRequested, refToMessageId, newProcessed);
     }
 
     public static EbmsMessage newInbound(String messageId, String conversationId, String cpaId,
@@ -40,7 +46,7 @@ public record EbmsMessage(
                                          boolean ackRequested, String refToMessageId) {
         return new EbmsMessage(UUID.randomUUID(), messageId, conversationId, cpaId, from, to,
                 service, action, timestamp, payloads, Direction.INBOUND, MessageStatus.RECEIVED,
-                0, null, ackRequested, refToMessageId);
+                0, null, ackRequested, refToMessageId, false);
     }
 
     public static EbmsMessage newOutbound(String messageId, String conversationId, String cpaId,
@@ -48,7 +54,7 @@ public record EbmsMessage(
                                           List<Payload> payloads, boolean ackRequested) {
         return new EbmsMessage(UUID.randomUUID(), messageId, conversationId, cpaId, from, to,
                 service, action, Instant.now(), payloads, Direction.OUTBOUND, MessageStatus.PENDING_SEND,
-                0, null, ackRequested, null);
+                0, null, ackRequested, null, false);
     }
 
     public static EbmsMessage newAck(String messageId, String conversationId, String cpaId,
@@ -56,6 +62,6 @@ public record EbmsMessage(
         return new EbmsMessage(UUID.randomUUID(), messageId, conversationId, cpaId, from, to,
                 "urn:oasis:names:tc:ebxml-msg:service", "Acknowledgment",
                 Instant.now(), List.of(), Direction.OUTBOUND, MessageStatus.SENT,
-                0, null, false, refToMessageId);
+                0, null, false, refToMessageId, false);
     }
 }

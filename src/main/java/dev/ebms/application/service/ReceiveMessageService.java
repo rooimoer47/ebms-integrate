@@ -2,6 +2,7 @@ package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.ReceiveMessageUseCase;
 import dev.ebms.application.port.out.CpaRepository;
+import dev.ebms.application.port.out.MessageEventPublisher;
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
@@ -24,12 +25,14 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
     private final MessageRepository messageRepository;
     private final CpaRepository cpaRepository;
     private final MeterRegistry meterRegistry;
+    private final MessageEventPublisher eventPublisher;
 
     public ReceiveMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
-                                  MeterRegistry meterRegistry) {
+                                  MeterRegistry meterRegistry, MessageEventPublisher eventPublisher) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.meterRegistry = meterRegistry;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -55,6 +58,7 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
         messageRepository.save(message);
         meterRegistry.counter("ebms.messages.inbound",
                 "cpa_id", message.cpaId(), "action", message.action()).increment();
+        eventPublisher.publish(MessageEventPublisher.EventType.RECEIVED, message);
 
         return message.ackRequested()
                 ? Optional.of(buildAck(message))

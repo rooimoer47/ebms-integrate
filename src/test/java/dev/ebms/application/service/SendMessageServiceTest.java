@@ -44,7 +44,7 @@ class SendMessageServiceTest {
     @BeforeEach
     void setup() {
         service = new SendMessageService(messageRepository, cpaRepository,
-                transport, serializer, inboundParser, new SimpleMeterRegistry());
+                transport, serializer, inboundParser, new SimpleMeterRegistry(), (event, msg) -> {});
     }
 
     @Test

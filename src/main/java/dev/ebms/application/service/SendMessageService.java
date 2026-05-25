@@ -3,6 +3,7 @@ package dev.ebms.application.service;
 import dev.ebms.application.port.in.SendMessageUseCase;
 import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.application.port.out.InboundMessageParser;
+import dev.ebms.application.port.out.MessageEventPublisher;
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.application.port.out.MessageTransport;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
@@ -32,19 +33,22 @@ public class SendMessageService implements SendMessageUseCase {
     private final OutboundMessageSerializer serializer;
     private final InboundMessageParser inboundParser;
     private final MeterRegistry meterRegistry;
+    private final MessageEventPublisher eventPublisher;
 
     @Value("${ebms.msh-id}")
     private String mshId;
 
     public SendMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
                               MessageTransport transport, OutboundMessageSerializer serializer,
-                              InboundMessageParser inboundParser, MeterRegistry meterRegistry) {
+                              InboundMessageParser inboundParser, MeterRegistry meterRegistry,
+                              MessageEventPublisher eventPublisher) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.transport = transport;
         this.serializer = serializer;
         this.inboundParser = inboundParser;
         this.meterRegistry = meterRegistry;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -87,12 +91,14 @@ public class SendMessageService implements SendMessageUseCase {
                 }
                 messageRepository.update(message.withStatus(finalStatus));
                 recordOutbound(cpa.cpaId(), finalStatus.name().toLowerCase());
+                eventPublisher.publish(MessageEventPublisher.EventType.DELIVERED, message);
             } else {
                 log.warn("Failed to send message {}, scheduling retry", message.messageId());
                 int newCount = message.retryCount() + 1;
                 if (newCount >= cpa.retries()) {
                     messageRepository.update(message.withStatus(MessageStatus.FAILED));
                     recordOutbound(cpa.cpaId(), "failed");
+                    eventPublisher.publish(MessageEventPublisher.EventType.FAILED, message);
                 } else {
                     Instant nextRetry = Instant.now().plus(cpa.retryInterval());
                     messageRepository.update(message.withRetry(newCount, nextRetry));

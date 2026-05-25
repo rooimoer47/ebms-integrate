@@ -68,6 +68,12 @@
             <artifactId>xmlsec</artifactId>
             <version>3.0.4</version>
         </dependency>
+        <!-- JMS / ActiveMQ Classic (optional: only used when ebms.jms.broker-url is set) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-activemq</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

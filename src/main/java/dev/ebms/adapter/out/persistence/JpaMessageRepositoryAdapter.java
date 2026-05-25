@@ -61,6 +61,12 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<EbmsMessage> findUnprocessedInbound() {
+        return jpa.findUnprocessedInbound().stream().map(this::toDomain).toList();
+    }
+
+    @Override
     @Transactional
     public EbmsMessage update(EbmsMessage message) {
         MessageEntity entity = jpa.findById(message.id()).orElseThrow();
@@ -68,6 +74,15 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
         entity.setRetryCount(message.retryCount());
         entity.setNextRetryAt(message.nextRetryAt());
         return toDomain(jpa.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public void markProcessed(UUID id) {
+        jpa.findById(id).ifPresent(entity -> {
+            entity.setProcessed(true);
+            jpa.save(entity);
+        });
     }
 
     private MessageEntity toEntity(EbmsMessage m) {
@@ -89,6 +104,7 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
         e.setNextRetryAt(m.nextRetryAt());
         e.setAckRequested(m.ackRequested());
         e.setRefToMessageId(m.refToMessageId());
+        e.setProcessed(m.processed());
         return e;
     }
 
@@ -102,7 +118,7 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
                 new Party(e.getToPartyId(), e.getToPartyType()),
                 e.getService(), e.getAction(), e.getTimestamp(), payloads,
                 e.getDirection(), e.getStatus(), e.getRetryCount(), e.getNextRetryAt(),
-                e.isAckRequested(), e.getRefToMessageId()
+                e.isAckRequested(), e.getRefToMessageId(), e.isProcessed()
         );
     }
 }

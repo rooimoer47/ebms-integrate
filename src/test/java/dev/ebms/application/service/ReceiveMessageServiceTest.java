@@ -34,7 +34,7 @@ class ReceiveMessageServiceTest {
 
     @BeforeEach
     void setupCpa() {
-        service = new ReceiveMessageService(messageRepository, cpaRepository, new SimpleMeterRegistry());
+        service = new ReceiveMessageService(messageRepository, cpaRepository, new SimpleMeterRegistry(), (event, msg) -> {});
         lenient().when(cpaRepository.findByCpaId("cpa-001")).thenReturn(Optional.of(cpa(true)));
     }
 

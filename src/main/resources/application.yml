@@ -1,4 +1,8 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jms.activemq.ActiveMQAutoConfiguration
+      - org.springframework.boot.autoconfigure.jms.JmsAutoConfiguration
   datasource:
     url: jdbc:postgresql://localhost:5432/ebms
     username: ebms
@@ -33,3 +37,5 @@ ebms:
     keystore-alias: ${EBMS_KEYSTORE_ALIAS:ebms}
     truststore-path: ${EBMS_TRUSTSTORE_PATH:}
     truststore-password: ${EBMS_TRUSTSTORE_PASSWORD:}
+  # jms.broker-url: set EBMS_JMS_BROKER_URL to enable ActiveMQ event publishing
+  # jms.username / jms.password: optional credentials

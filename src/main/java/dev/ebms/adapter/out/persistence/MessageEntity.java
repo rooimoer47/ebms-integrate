@@ -69,6 +69,9 @@ public class MessageEntity {
     @Column(name = "ref_to_message_id")
     private String refToMessageId;
 
+    @Column(nullable = false)
+    private boolean processed;
+
     @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<PayloadEntity> payloads = new ArrayList<>();
 
@@ -110,5 +113,7 @@ public class MessageEntity {
     public void setAckRequested(boolean ackRequested) { this.ackRequested = ackRequested; }
     public String getRefToMessageId() { return refToMessageId; }
     public void setRefToMessageId(String refToMessageId) { this.refToMessageId = refToMessageId; }
+    public boolean isProcessed() { return processed; }
+    public void setProcessed(boolean processed) { this.processed = processed; }
     public List<PayloadEntity> getPayloads() { return payloads; }
 }

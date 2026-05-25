@@ -22,5 +22,9 @@ public interface MessageRepository {
     /** Messages that are PENDING_SEND and ready for their next attempt. */
     List<EbmsMessage> findPendingRetries(Instant now);
 
+    List<EbmsMessage> findUnprocessedInbound();
+
     EbmsMessage update(EbmsMessage message);
+
+    void markProcessed(UUID id);
 }
