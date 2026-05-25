@@ -7,6 +7,7 @@ import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.exception.CpaNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,10 +23,13 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
 
     private final MessageRepository messageRepository;
     private final CpaRepository cpaRepository;
+    private final MeterRegistry meterRegistry;
 
-    public ReceiveMessageService(MessageRepository messageRepository, CpaRepository cpaRepository) {
+    public ReceiveMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
+                                  MeterRegistry meterRegistry) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -41,6 +45,7 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
         if (cpa.duplicateElimination()) {
             Optional<EbmsMessage> existing = messageRepository.findByMessageId(message.messageId());
             if (existing.isPresent()) {
+                meterRegistry.counter("ebms.messages.duplicate", "cpa_id", cpa.cpaId()).increment();
                 return existing.get().ackRequested()
                         ? Optional.of(buildAck(existing.get()))
                         : Optional.empty();
@@ -48,6 +53,8 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
         }
 
         messageRepository.save(message);
+        meterRegistry.counter("ebms.messages.inbound",
+                "cpa_id", message.cpaId(), "action", message.action()).increment();
 
         return message.ackRequested()
                 ? Optional.of(buildAck(message))

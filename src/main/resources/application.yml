@@ -13,6 +13,15 @@ spring:
     virtual:
       enabled: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ebms-msh
+
 ebms:
   cpa-directory: ${CPA_DIRECTORY:config/cpas}
   host-party-id: ${HOST_PARTY_ID:our-party}

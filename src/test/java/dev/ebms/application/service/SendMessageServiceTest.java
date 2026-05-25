@@ -11,6 +11,7 @@ import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +44,7 @@ class SendMessageServiceTest {
     @BeforeEach
     void setup() {
         service = new SendMessageService(messageRepository, cpaRepository,
-                transport, serializer, inboundParser);
+                transport, serializer, inboundParser, new SimpleMeterRegistry());
     }
 
     @Test

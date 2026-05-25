@@ -10,6 +10,8 @@ import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.exception.CpaNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,18 +31,20 @@ public class SendMessageService implements SendMessageUseCase {
     private final MessageTransport transport;
     private final OutboundMessageSerializer serializer;
     private final InboundMessageParser inboundParser;
+    private final MeterRegistry meterRegistry;
 
     @Value("${ebms.msh-id}")
     private String mshId;
 
     public SendMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
                               MessageTransport transport, OutboundMessageSerializer serializer,
-                              InboundMessageParser inboundParser) {
+                              InboundMessageParser inboundParser, MeterRegistry meterRegistry) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.transport = transport;
         this.serializer = serializer;
         this.inboundParser = inboundParser;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -67,29 +71,44 @@ public class SendMessageService implements SendMessageUseCase {
     }
 
     void attemptSend(EbmsMessage message, Cpa cpa) {
-        OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(message, cpa.recipientCert());
-        MessageTransport.TransportResult result = transport.send(cpa.transportUrl(),
-                serialized.body(), serialized.contentType());
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(message, cpa.recipientCert());
+            MessageTransport.TransportResult result = transport.send(cpa.transportUrl(),
+                    serialized.body(), serialized.contentType());
 
-        if (result.success()) {
-            log.info("Message {} sent to {}", message.messageId(), cpa.transportUrl());
-            MessageStatus finalStatus = isSynchronousAck(message, result)
-                    ? MessageStatus.ACKED
-                    : MessageStatus.SENT;
-            if (finalStatus == MessageStatus.ACKED) {
-                log.info("Message {} acknowledged synchronously", message.messageId());
-            }
-            messageRepository.update(message.withStatus(finalStatus));
-        } else {
-            log.warn("Failed to send message {}, scheduling retry", message.messageId());
-            int newCount = message.retryCount() + 1;
-            if (newCount >= cpa.retries()) {
-                messageRepository.update(message.withStatus(MessageStatus.FAILED));
+            if (result.success()) {
+                log.info("Message {} sent to {}", message.messageId(), cpa.transportUrl());
+                MessageStatus finalStatus = isSynchronousAck(message, result)
+                        ? MessageStatus.ACKED
+                        : MessageStatus.SENT;
+                if (finalStatus == MessageStatus.ACKED) {
+                    log.info("Message {} acknowledged synchronously", message.messageId());
+                }
+                messageRepository.update(message.withStatus(finalStatus));
+                recordOutbound(cpa.cpaId(), finalStatus.name().toLowerCase());
             } else {
-                Instant nextRetry = Instant.now().plus(cpa.retryInterval());
-                messageRepository.update(message.withRetry(newCount, nextRetry));
+                log.warn("Failed to send message {}, scheduling retry", message.messageId());
+                int newCount = message.retryCount() + 1;
+                if (newCount >= cpa.retries()) {
+                    messageRepository.update(message.withStatus(MessageStatus.FAILED));
+                    recordOutbound(cpa.cpaId(), "failed");
+                } else {
+                    Instant nextRetry = Instant.now().plus(cpa.retryInterval());
+                    messageRepository.update(message.withRetry(newCount, nextRetry));
+                    recordOutbound(cpa.cpaId(), "retrying");
+                }
             }
+        } finally {
+            sample.stop(Timer.builder("ebms.send.duration")
+                    .tag("cpa_id", cpa.cpaId())
+                    .register(meterRegistry));
         }
+    }
+
+    private void recordOutbound(String cpaId, String result) {
+        meterRegistry.counter("ebms.messages.outbound", "cpa_id", cpaId, "result", result)
+                .increment();
     }
 
     private boolean isSynchronousAck(EbmsMessage sent, MessageTransport.TransportResult result) {

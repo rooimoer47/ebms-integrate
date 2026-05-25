@@ -7,10 +7,10 @@ import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
 import dev.ebms.domain.exception.CpaNotFoundException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,10 +30,11 @@ class ReceiveMessageServiceTest {
 
     @Mock MessageRepository messageRepository;
     @Mock CpaRepository cpaRepository;
-    @InjectMocks ReceiveMessageService service;
+    ReceiveMessageService service;
 
     @BeforeEach
     void setupCpa() {
+        service = new ReceiveMessageService(messageRepository, cpaRepository, new SimpleMeterRegistry());
         lenient().when(cpaRepository.findByCpaId("cpa-001")).thenReturn(Optional.of(cpa(true)));
     }
 

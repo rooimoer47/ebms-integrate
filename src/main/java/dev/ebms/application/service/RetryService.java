@@ -5,6 +5,7 @@ import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.exception.CpaNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,12 +22,14 @@ public class RetryService {
     private final MessageRepository messageRepository;
     private final CpaRepository cpaRepository;
     private final SendMessageService sendMessageService;
+    private final MeterRegistry meterRegistry;
 
     public RetryService(MessageRepository messageRepository, CpaRepository cpaRepository,
-                        SendMessageService sendMessageService) {
+                        SendMessageService sendMessageService, MeterRegistry meterRegistry) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.sendMessageService = sendMessageService;
+        this.meterRegistry = meterRegistry;
     }
 
     @Scheduled(fixedDelay = 30_000)
@@ -38,6 +41,7 @@ public class RetryService {
         for (EbmsMessage message : pending) {
             Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
                     .orElseThrow(() -> new CpaNotFoundException(message.cpaId()));
+            meterRegistry.counter("ebms.retries.attempted", "cpa_id", message.cpaId()).increment();
             sendMessageService.attemptSend(message, cpa);
         }
     }

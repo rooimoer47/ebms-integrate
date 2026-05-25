@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: ebms-msh
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # When running app via docker-compose, use the service name:
+      #   - targets: ['app:8080']
+      # When running app on the host (mvn spring-boot:run), use:
+      - targets: ['host.docker.internal:8080']
