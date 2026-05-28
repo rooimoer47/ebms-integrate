@@ -13,10 +13,10 @@ public interface MessageTransport {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof TransportResult t)) return false;
-            return success == t.success
-                    && Arrays.equals(responseBody, t.responseBody)
-                    && Objects.equals(responseContentType, t.responseContentType);
+            return o instanceof TransportResult(var s, var rb, var rct)
+                    && success == s
+                    && Arrays.equals(responseBody, rb)
+                    && Objects.equals(responseContentType, rct);
         }
 
         @Override

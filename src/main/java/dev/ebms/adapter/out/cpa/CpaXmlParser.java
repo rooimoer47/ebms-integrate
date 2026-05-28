@@ -34,7 +34,7 @@ class CpaXmlParser {
     private static final String XLINK_NS = "http://www.w3.org/1999/xlink";
     private static final String DS_NS = "http://www.w3.org/2000/09/xmldsig#";
 
-    Cpa parse(Path file, String ourPartyId) throws Exception {
+    Cpa parse(Path file, String ourPartyId) throws ParserConfigurationException, SAXException, IOException, XPathExpressionException {
         Document doc = parseXml(file);
         XPath xpath = buildXpath();
 

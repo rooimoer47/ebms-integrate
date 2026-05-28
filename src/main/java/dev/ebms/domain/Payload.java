@@ -8,10 +8,10 @@ public record Payload(String contentId, String mimeType, byte[] content) {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Payload p)) return false;
-        return Objects.equals(contentId, p.contentId)
-                && Objects.equals(mimeType, p.mimeType)
-                && Arrays.equals(content, p.content);
+        return o instanceof Payload(var cId, var mType, var c)
+                && Objects.equals(contentId, cId)
+                && Objects.equals(mimeType, mType)
+                && Arrays.equals(content, c);
     }
 
     @Override

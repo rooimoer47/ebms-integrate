@@ -16,8 +16,9 @@ public interface OutboundMessageSerializer {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof SerializedMessage s)) return false;
-            return Arrays.equals(body, s.body) && java.util.Objects.equals(contentType, s.contentType);
+            return o instanceof SerializedMessage(var b, var ct)
+                    && Arrays.equals(body, b)
+                    && java.util.Objects.equals(contentType, ct);
         }
 
         @Override
