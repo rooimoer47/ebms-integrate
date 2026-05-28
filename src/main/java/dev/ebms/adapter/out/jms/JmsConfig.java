@@ -27,6 +27,9 @@ public class JmsConfig {
             factory.setUserName(username);
             factory.setPassword(password);
         }
+        // We only produce property-only messages; disable object message deserialization
+        factory.setTrustAllPackages(false);
+        factory.setTrustedPackages(java.util.List.of());
         return factory;
     }
 

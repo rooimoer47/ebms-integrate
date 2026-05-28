@@ -56,10 +56,11 @@ class SoapMimeParserSignedTest {
                 "OrderService", "NewOrder", List.of(), false);
 
         byte[] signed = serializer.serialize(outbound, null).body();
-        String body = new String(signed, StandardCharsets.UTF_8)
-                .replace("NewOrder", "TamperedAction");
+        byte[] tampered = new String(signed, StandardCharsets.UTF_8)
+                .replace("NewOrder", "TamperedAction")
+                .getBytes(StandardCharsets.UTF_8);
 
-        assertThatThrownBy(() -> parser.parse(body.getBytes(StandardCharsets.UTF_8), "text/xml"))
+        assertThatThrownBy(() -> parser.parse(tampered, "text/xml"))
                 .isInstanceOf(MessageParseException.class)
                 .satisfies(e -> assertThat(((MessageParseException) e).getEbmsErrorCode())
                         .isEqualTo("SecurityFailure"));
