@@ -39,7 +39,8 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
     @Transactional
     public Optional<EbmsMessage> receive(EbmsMessage message) {
         if ("Acknowledgment".equals(message.action())) {
-            return processAcknowledgment(message);
+            processAcknowledgment(message);
+            return Optional.empty();
         }
 
         Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
@@ -65,11 +66,11 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
                 : Optional.empty();
     }
 
-    private Optional<EbmsMessage> processAcknowledgment(EbmsMessage ack) {
+    private void processAcknowledgment(EbmsMessage ack) {
         String refId = ack.refToMessageId();
         if (refId == null) {
             log.warn("Received Acknowledgment {} with no RefToMessageId — ignoring", ack.messageId());
-            return Optional.empty();
+            return;
         }
         messageRepository.findByMessageId(refId).ifPresentOrElse(
                 original -> {
@@ -82,7 +83,6 @@ public class ReceiveMessageService implements ReceiveMessageUseCase {
                 },
                 () -> log.warn("Received Acknowledgment for unknown message {}", refId)
         );
-        return Optional.empty();
     }
 
     private EbmsMessage buildAck(EbmsMessage original) {

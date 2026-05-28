@@ -11,11 +11,15 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.namespace.NamespaceContext;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.Path;
+import org.xml.sax.SAXException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
@@ -98,11 +102,11 @@ class CpaXmlParser {
         return cpaId;
     }
 
-    private String extractPartyId(Node partyInfo, XPath xpath) throws Exception {
+    private String extractPartyId(Node partyInfo, XPath xpath) throws XPathExpressionException {
         return xpath.evaluate("cpa:PartyId", partyInfo).trim();
     }
 
-    private Party extractParty(Node partyInfo, XPath xpath) throws Exception {
+    private Party extractParty(Node partyInfo, XPath xpath) throws XPathExpressionException {
         Node partyIdNode = (Node) xpath.evaluate("cpa:PartyId", partyInfo, XPathConstants.NODE);
         if (partyIdNode == null) {
             throw new IllegalArgumentException("PartyInfo missing PartyId element");
@@ -130,7 +134,7 @@ class CpaXmlParser {
         }
     }
 
-    private String extractTransportUrl(Node partnerPartyInfo, XPath xpath) throws Exception {
+    private String extractTransportUrl(Node partnerPartyInfo, XPath xpath) throws XPathExpressionException {
         Node endpointNode = (Node) xpath.evaluate(
                 "cpa:Transport/cpa:TransportReceiver/cpa:Endpoint", partnerPartyInfo, XPathConstants.NODE);
         if (endpointNode == null) {
@@ -147,7 +151,7 @@ class CpaXmlParser {
         return url;
     }
 
-    private Document parseXml(Path file) throws Exception {
+    private Document parseXml(Path file) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);

@@ -15,7 +15,9 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.http.HttpClient;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 
 @Component
@@ -66,7 +68,7 @@ public class HttpMessageTransport implements MessageTransport {
         }
     }
 
-    private static SSLContext buildSslContext(EbmsSecurityProperties props) throws Exception {
+    private static SSLContext buildSslContext(EbmsSecurityProperties props) throws GeneralSecurityException, IOException {
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         try (FileInputStream fis = new FileInputStream(props.getKeystorePath())) {
             keyStore.load(fis, props.getKeystorePassword().toCharArray());

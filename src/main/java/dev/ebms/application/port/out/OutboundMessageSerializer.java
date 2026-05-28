@@ -3,6 +3,7 @@ package dev.ebms.application.port.out;
 import dev.ebms.domain.EbmsMessage;
 
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 
 public interface OutboundMessageSerializer {
 
@@ -11,5 +12,22 @@ public interface OutboundMessageSerializer {
 
     SerializedMessage serializeError(EbmsMessage context, String errorCode, String description);
 
-    record SerializedMessage(byte[] body, String contentType) {}
+    record SerializedMessage(byte[] body, String contentType) {
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof SerializedMessage s)) return false;
+            return Arrays.equals(body, s.body) && java.util.Objects.equals(contentType, s.contentType);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(Arrays.hashCode(body), contentType);
+        }
+
+        @Override
+        public String toString() {
+            return "SerializedMessage[body=" + Arrays.toString(body) + ", contentType=" + contentType + "]";
+        }
+    }
 }

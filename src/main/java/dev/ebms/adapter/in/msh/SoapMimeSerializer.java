@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -45,6 +46,11 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
     private static final String ATTR_MUST_UNDERSTAND = "SOAP-ENV:mustUnderstand";
     private static final String ATTR_EB_VERSION = "eb:version";
     private static final String EB_PARTY_ID = "eb:PartyId";
+    private static final String EB_FROM = "eb:From";
+    private static final String EB_TIMESTAMP = "eb:Timestamp";
+    private static final String EB_REF_TO_MESSAGE_ID = "eb:RefToMessageId";
+    private static final String CONTENT_TYPE_XML = "text/xml; charset=UTF-8";
+    private static final String UNKNOWN_PARTY = "unknown";
 
     private final XmlSignatureService signatureService;
     private final XmlEncryptionService encryptionService;
@@ -71,7 +77,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
             String soapXml = toXmlString(doc);
 
             if (payloads.isEmpty()) {
-                return new SerializedMessage(soapXml.getBytes(), "text/xml; charset=UTF-8");
+                return new SerializedMessage(soapXml.getBytes(), CONTENT_TYPE_XML);
             }
 
             return buildMultipart(soapXml, payloads);
@@ -120,7 +126,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         header.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
         header.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
 
-        Element from = doc.createElementNS(EB_NS, "eb:From");
+        Element from = doc.createElementNS(EB_NS, EB_FROM);
         Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         if (message.from().partyIdType() != null) {
             fromPartyId.setAttributeNS(EB_NS, "eb:type", message.from().partyIdType());
@@ -145,10 +151,10 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
         Element messageData = doc.createElementNS(EB_NS, "eb:MessageData");
         appendText(doc, messageData, EB_NS, "eb:MessageId", message.messageId());
-        appendText(doc, messageData, EB_NS, "eb:Timestamp",
+        appendText(doc, messageData, EB_NS, EB_TIMESTAMP,
                 DateTimeFormatter.ISO_INSTANT.format(message.timestamp()));
         if (message.refToMessageId() != null) {
-            appendText(doc, messageData, EB_NS, "eb:RefToMessageId", message.refToMessageId());
+            appendText(doc, messageData, EB_NS, EB_REF_TO_MESSAGE_ID, message.refToMessageId());
         }
         header.appendChild(messageData);
 
@@ -159,10 +165,10 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         Element ack = doc.createElementNS(EB_NS, "eb:Acknowledgment");
         ack.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
         ack.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
-        appendText(doc, ack, EB_NS, "eb:Timestamp",
+        appendText(doc, ack, EB_NS, EB_TIMESTAMP,
                 DateTimeFormatter.ISO_INSTANT.format(message.timestamp()));
-        appendText(doc, ack, EB_NS, "eb:RefToMessageId", message.refToMessageId());
-        Element from = doc.createElementNS(EB_NS, "eb:From");
+        appendText(doc, ack, EB_NS, EB_REF_TO_MESSAGE_ID, message.refToMessageId());
+        Element from = doc.createElementNS(EB_NS, EB_FROM);
         Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         fromPartyId.setTextContent(message.from().partyId());
         from.appendChild(fromPartyId);
@@ -188,7 +194,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         MimeMultipart multipart = new MimeMultipart("related; type=\"text/xml\"");
 
         MimeBodyPart soapPart = new MimeBodyPart();
-        soapPart.setContent(soapXml, "text/xml; charset=UTF-8");
+        soapPart.setContent(soapXml, CONTENT_TYPE_XML);
         soapPart.setHeader("Content-Id", "<rootpart@ebms.dev>");
         soapPart.setHeader("Content-Transfer-Encoding", "8bit");
         multipart.addBodyPart(soapPart);
@@ -234,7 +240,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
                 signatureService.sign(doc);
             }
             String xml = toXmlString(doc);
-            return new SerializedMessage(xml.getBytes(), "text/xml; charset=UTF-8");
+            return new SerializedMessage(xml.getBytes(), CONTENT_TYPE_XML);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize ebMS error", e);
         }
@@ -245,10 +251,10 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         msgHeader.setAttributeNS(SOAP_NS, ATTR_MUST_UNDERSTAND, "1");
         msgHeader.setAttributeNS(EB_NS, ATTR_EB_VERSION, "2.0");
 
-        String fromPartyId = context != null ? context.to().partyId() : "unknown";
-        String toPartyId = context != null ? context.from().partyId() : "unknown";
+        String fromPartyId = context != null ? context.to().partyId() : UNKNOWN_PARTY;
+        String toPartyId = context != null ? context.from().partyId() : UNKNOWN_PARTY;
 
-        Element from = doc.createElementNS(EB_NS, "eb:From");
+        Element from = doc.createElementNS(EB_NS, EB_FROM);
         Element fromPartyEl = doc.createElementNS(EB_NS, EB_PARTY_ID);
         fromPartyEl.setTextContent(fromPartyId);
         from.appendChild(fromPartyEl);
@@ -260,7 +266,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         to.appendChild(toPartyEl);
         msgHeader.appendChild(to);
 
-        appendText(doc, msgHeader, EB_NS, "eb:CPAId", context != null ? context.cpaId() : "unknown");
+        appendText(doc, msgHeader, EB_NS, "eb:CPAId", context != null ? context.cpaId() : UNKNOWN_PARTY);
         appendText(doc, msgHeader, EB_NS, "eb:ConversationId",
                 context != null ? context.conversationId() : UUID.randomUUID().toString());
         appendText(doc, msgHeader, EB_NS, "eb:Service", "urn:oasis:names:tc:ebxml-msg:service");
@@ -268,10 +274,10 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
 
         Element messageData = doc.createElementNS(EB_NS, "eb:MessageData");
         appendText(doc, messageData, EB_NS, "eb:MessageId", UUID.randomUUID() + "@ebms.dev");
-        appendText(doc, messageData, EB_NS, "eb:Timestamp",
+        appendText(doc, messageData, EB_NS, EB_TIMESTAMP,
                 DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
         if (context != null) {
-            appendText(doc, messageData, EB_NS, "eb:RefToMessageId", context.messageId());
+            appendText(doc, messageData, EB_NS, EB_REF_TO_MESSAGE_ID, context.messageId());
         }
         msgHeader.appendChild(messageData);
 
@@ -304,7 +310,11 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
     }
 
     private String toXmlString(Document doc) throws TransformerException {
-        Transformer t = TransformerFactory.newInstance().newTransformer();
+        TransformerFactory tf = TransformerFactory.newInstance();
+        tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        Transformer t = tf.newTransformer();
         t.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
         t.setOutputProperty(OutputKeys.INDENT, "no");
         StringWriter sw = new StringWriter();

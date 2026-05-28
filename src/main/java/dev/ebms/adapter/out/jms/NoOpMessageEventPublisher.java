@@ -10,5 +10,7 @@ import org.springframework.stereotype.Component;
 public class NoOpMessageEventPublisher implements MessageEventPublisher {
 
     @Override
-    public void publish(EventType event, EbmsMessage message) {}
+    public void publish(EventType event, EbmsMessage message) {
+        // no-op: event publishing is disabled when ebms.jms.broker-url is not configured
+    }
 }

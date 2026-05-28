@@ -14,13 +14,17 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import org.xml.sax.SAXException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -38,9 +42,10 @@ public class XmlEncryptionService {
     static final String ENCRYPTED_MIME_TYPE = "application/xenc+xml";
 
     private final PrivateKey decryptionKey;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Autowired
-    public XmlEncryptionService(EbmsSecurityProperties props) throws Exception {
+    public XmlEncryptionService(EbmsSecurityProperties props) throws GeneralSecurityException, IOException {
         if (props.keystoreConfigured()) {
             KeyStore ks = KeyStore.getInstance("PKCS12");
             try (FileInputStream fis = new FileInputStream(props.getKeystorePath())) {
@@ -96,7 +101,7 @@ public class XmlEncryptionService {
     }
 
     private List<Payload> doEncryptPayloads(Document doc, List<Payload> payloads,
-                                             X509Certificate recipientCert) throws Exception {
+                                             X509Certificate recipientCert) throws GeneralSecurityException {
         if (payloads.isEmpty()) return payloads;
 
         KeyGenerator kg = KeyGenerator.getInstance("AES");
@@ -117,7 +122,7 @@ public class XmlEncryptionService {
         return result;
     }
 
-    private List<Payload> doDecryptPayloads(Document doc, List<Payload> payloads) throws Exception {
+    private List<Payload> doDecryptPayloads(Document doc, List<Payload> payloads) throws GeneralSecurityException, ParserConfigurationException, SAXException, IOException {
         if (payloads.isEmpty() || decryptionKey == null) return payloads;
 
         NodeList keyNodes = doc.getElementsByTagNameNS(XENC_NS, "EncryptedKey");
@@ -136,9 +141,10 @@ public class XmlEncryptionService {
         return result;
     }
 
-    private Payload encryptPayload(Payload payload, SecretKey key, String encKeyId) throws Exception {
+    @SuppressWarnings("java:S5542") // AES-CBC required by XML Encryption 1.0 / ebMS 2.0 spec
+    private Payload encryptPayload(Payload payload, SecretKey key, String encKeyId) throws GeneralSecurityException {
         byte[] iv = new byte[16];
-        new SecureRandom().nextBytes(iv);
+        secureRandom.nextBytes(iv);
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
         cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
         byte[] ciphertext = cipher.doFinal(payload.content());
@@ -154,7 +160,8 @@ public class XmlEncryptionService {
                 encDataXml.getBytes(StandardCharsets.UTF_8));
     }
 
-    private Payload decryptPayload(Payload payload, SecretKey key) throws Exception {
+    @SuppressWarnings("java:S5542") // AES-CBC required by XML Encryption 1.0 / ebMS 2.0 spec
+    private Payload decryptPayload(Payload payload, SecretKey key) throws GeneralSecurityException, ParserConfigurationException, SAXException, IOException {
         if (!ENCRYPTED_MIME_TYPE.equals(payload.mimeType())) return payload;
 
         Document encDoc = parseXml(payload.content());
@@ -179,7 +186,7 @@ public class XmlEncryptionService {
     }
 
     private void addEncryptedKeyToHeader(Document doc, byte[] wrappedKey,
-                                          X509Certificate cert, String id) throws Exception {
+                                          X509Certificate cert, String id) throws GeneralSecurityException {
         Element header = (Element) doc.getElementsByTagNameNS(SoapMimeParser.SOAP_NS, "Header").item(0);
 
         Element encKey = doc.createElementNS(XENC_NS, "xenc:EncryptedKey");
@@ -239,7 +246,7 @@ public class XmlEncryptionService {
         return Base64.getDecoder().decode(cipherValues.item(0).getTextContent().trim());
     }
 
-    private Document parseXml(byte[] bytes) throws Exception {
+    private Document parseXml(byte[] bytes) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);

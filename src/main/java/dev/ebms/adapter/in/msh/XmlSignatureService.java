@@ -15,6 +15,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -28,7 +30,7 @@ public class XmlSignatureService {
     private final X509Certificate signingCert;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public XmlSignatureService(EbmsSecurityProperties props) throws Exception {
+    public XmlSignatureService(EbmsSecurityProperties props) throws GeneralSecurityException, IOException {
         Init.init();
         if (props.keystoreConfigured()) {
             KeyStore ks = KeyStore.getInstance("PKCS12");
@@ -137,7 +139,7 @@ public class XmlSignatureService {
         }
     }
 
-    private Transforms newTransforms(Document doc) throws Exception {
+    private Transforms newTransforms(Document doc) throws org.apache.xml.security.transforms.TransformationException {
         Transforms t = new Transforms(doc);
         t.addTransform(Transforms.TRANSFORM_C14N_EXCL_OMIT_COMMENTS);
         return t;
