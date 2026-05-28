@@ -62,7 +62,7 @@ jobs:
           build-args: VERSION=${{ steps.version.outputs.version }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: target/ebms-msh-${{ steps.version.outputs.version }}.jar
           generate_release_notes: true
