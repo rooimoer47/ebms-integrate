@@ -651,7 +651,9 @@ persisted, exposed on both APIs, and published on JMS events; CPA files carry th
 migration adds the columns.
 
 ### F3. CPA validation
-**AC:** XML CPAs are validated against the CPPA 2.0 XSD on load and via `POST /cpas/validate`;
+Now on the critical path rather than a nicety: under D1 the XML arrives from a client over the
+network, so validation is the gate between an upload and the database.
+**AC:** XML CPAs are validated against the CPPA 2.0 XSD on upload, on bootstrap load, and via `POST /cpas/validate`;
 validation errors name the file and the failing element; YAML CPAs are validated against our own
 schema with the same quality of error message; a CPA whose `transportUrl` is not HTTPS produces a
 warning (or an error, configurable).
@@ -680,13 +682,28 @@ endpoint unimplementable and throws away everything in the agreement we do not m
 - Flyway `V3` adds a `cpa` table: unique `cpa_id`, the raw document and its content type, a version or updated-at column for optimistic locking, and upload metadata (when, and by whom once B3 lands).
 - `CpaRepository` gains `save` and `deleteByCpaId`; a `JpaCpaRepositoryAdapter` implements it. `YamlCpaRepository` is reduced to the F1 bootstrap loader and no longer implements the port.
 - **No per-pod cache in 0.1.0.** Lookups read through to the database, so pods and availability zones cannot disagree and there is no invalidation protocol to get wrong. This is one indexed primary-key read per message against a table with tens of rows; H4 measures it, and a short-TTL cache is added *only* if that measurement says it matters. Cross-pod cache invalidation is explicitly not what we reach for first.
-- Both formats are accepted on upload: CPPA 2.0 XML — what ebms-core takes, and what our existing `CpaXmlParser` already handles — and our YAML. XML is the documented format for `cpa-service`.
+- **CPPA 2.0 XML is the upload format** — confirmed with the engineer, 2026-09-08, and it is what ebms-core accepts too. YAML stays supported for the F1 bootstrap only, not for uploads.
 - Two pods uploading the same `cpaId` concurrently resolve deterministically through the unique constraint: one wins, the other gets a clear conflict, and neither leaves a partial write.
 - A test proves the actual requirement: two application contexts against one database, one uploads a CPA, the other resolves it on the next message with no restart and no reload call.
 
-**Note on certificates.** The YAML format resolves `recipientCertPath` relative to the CPA file,
-which cannot survive a move into the database. CPPA XML embeds the certificate, so the XML path is
-the one that works; YAML uploads must carry the certificate inline rather than by path.
+**What `CpaXmlParser` needs.** It is in better shape for this than expected: namespace-aware over
+the CPPA 2.0 namespace, reads the certificate from an embedded `ds:X509Certificate` rather than a
+file reference, and already hardened against XXE and entity expansion
+(`disallow-doctype-decl`, external general and parameter entities off, XInclude off) — which matters
+considerably more now that the document arrives over the network instead of from a mounted volume.
+Two mechanical changes: it takes a `Path` and needs to take bytes, since an upload never touches the
+filesystem, and `extractCertificate` uses that path only to name the file in a log message.
+
+It is, however, a *partial* reader of the agreement. `PersistDuration` (C4, E8), roles (F2),
+sync-reply mode (E3), signing and encryption requirements (B2) and compression (E5) all live in the
+CPPA document and none are extracted today. That is the F4 audit, and with XML upload confirmed the
+CPA document is unambiguously where each of those settings has to come from — not a parallel set of
+properties.
+
+**Note on certificates.** Our YAML format resolves `recipientCertPath` relative to the CPA file,
+which cannot survive a move into the database. Uploads are unaffected because CPPA XML embeds the
+certificate; the constraint applies only to the F1 bootstrap, where a referenced certificate file
+has to be mounted alongside the CPA.
 
 ---
 
