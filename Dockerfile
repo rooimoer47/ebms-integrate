@@ -1,6 +1,6 @@
 # Base images are pinned by digest so rebuilding a commit produces the same image.
 # Refresh with: docker buildx imagetools inspect <tag>
-FROM maven:3.9-eclipse-temurin-21@sha256:8f6ac126f7810bb5549c4cd122d2bf0e9cda5bdeb0838aa928f09e779fd8bef8 AS build
+FROM maven:3.9-eclipse-temurin-26@sha256:166ca19b6b5fe1e924ab2d66b64ba9854c739f16210b94bbe0074b036c5c7992 AS build
 WORKDIR /app
 COPY pom.xml .
 RUN mvn dependency:go-offline -q
