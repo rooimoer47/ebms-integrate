@@ -170,9 +170,7 @@ ignores that file, so keeping it would have been two sources of truth with one o
 real settings — project key, JaCoCo XML path, surefire path, coverage exclusions — are POM
 properties.
 
-**The S3776 suppression was narrowed from `**` to `**/adapter/in/msh/SoapMime*.java`**, which
-immediately surfaced what the blanket rule had been hiding. First scan after narrowing: five issues.
-All five are fixed rather than suppressed:
+**The first reproducible scan reported five issues**, all now fixed rather than suppressed:
 
 | Rule | Where | Fix |
 |---|---|---|
@@ -180,9 +178,25 @@ All five are fixed rather than suppressed:
 | `java:S5673` ×3 | `XmlSignatureService`, `XmlEncryptionService`, `YamlCpaRepository` annotated `@Component` | `@Service` / `@Repository`, which also reads correctly against the hexagonal layering |
 | `java:S1128` | Unused import in `EndToEndTest` | Left over from the A1 migration; removed |
 
+Only the first of those was affected by the existing suppression, whose `ruleKey` was `java:S3776`
+alone. The other four had never been hidden — they had simply never been scanned, which is the point
+of this story.
+
+**`java:S3776` stays disabled project-wide, now as a recorded decision rather than an unexplained
+`**` pattern.** The reasoning, which is in the POM next to the setting: the threshold of 15 is
+Sonar's number and can only be changed in a server-side quality profile, so a rule that cannot be
+tuned from the repository is one we either accept whole or switch off; it fires on parsing and
+serialisation code whose branching follows the ebMS message structure, where decomposing to satisfy
+the number reads worse; and nothing else here caps method size, since `java:S138` (75 lines) and
+`java:S1541` (cyclomatic complexity) are both inactive in Sonar way. Deep nesting is caught in
+review. If we want the signal back, the route is a provisioned quality profile with a higher
+threshold, not a narrower file pattern.
+
+The `CpaXmlParser` refactor is kept on its own merits — `extractReliableMessaging` groups a concept
+with its defaults instead of interleaving them — and not because a rule asked for it.
+
 Current state: **0 issues, 0 bugs, 0 vulnerabilities, 0 security hotspots, 0 code smells**, coverage
-72.3% overall (line 76.7%, branch 55.1%) on 2,512 lines. The remaining suppression covers only the
-two MIME classes whose branchiness follows the message structure.
+72.3% overall (line 76.7%, branch 55.1%) on 2,512 lines.
 
 ---
 
