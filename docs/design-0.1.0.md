@@ -8,6 +8,60 @@
 
 ---
 
+## 0. Status — where the work stands
+
+*Updated 2026-09-08. Keep this section current; it is the handover point for a new session.*
+
+### Implemented
+
+| Story | What landed |
+|---|---|
+| **A1** Spring Boot 4 | On 4.1.1, Java 21. Auto-configurations now come from per-technology modules (`spring-boot-flyway`, `spring-boot-restclient` added explicitly); `TestRestTemplate` replaced with `RestClient`; YAML mapper moved to Jackson 3. |
+| **A2** Coverage | JaCoCo reports on `mvn package`, gates on `mvn verify`. Baseline line 76.4%, branch 55.1%. |
+| **A3** SonarQube | `./scripts/sonar.sh` scans from cold in one command; compose profile `sonar`; 0 issues. `java:S3776` disabled project-wide as a recorded decision. |
+| **A4** Release hygiene | `/actuator/info` reports version, build time, git branch and commit. Fixed stale Boot 3 auto-configuration exclusions in `application.yml`. |
+| **I1** Snapshot image | `release.yml` publishes `ghcr.io/<owner>/ebms-integrate:0.1.0-SNAPSHOT` on every push to `master`, scanned with Trivy. Non-root, read-only rootfs, digest-pinned bases. |
+
+Decisions D1–D5 in section 3 are settled. **Note D1 was reversed**: the database is the CPA source
+of truth and `cpa-service` uploads CPPA 2.0 XML, so F5 and D5 are real work, not 405 stubs.
+
+### Verify locally
+
+```bash
+mvn verify           # 51 tests, coverage gate
+./scripts/sonar.sh   # static analysis; SONAR_PORT=9001 if 9000 is taken
+docker build -t ebms-integrate:local .
+```
+
+### What is next
+
+Milestone 1 is complete apart from **J1** (the README is still a stub). Milestone 2 is the
+release-blocker set, and the order matters:
+
+1. **B3 API authentication first.** Everything else in the milestone is safe to do in any order, but
+   the CPA write endpoints (D5/F5) must not exist before the authentication that guards them — an
+   unauthenticated `POST /cpas` lets anyone redirect our outbound traffic.
+2. B1 signature trust, B2 per-CPA security policy, B5 input limits, B6 secrets.
+3. C1 transaction boundary, C2 timeouts, C3 retry locking, C5 error responses, C6 duplicate race.
+
+Then Milestone 3, where **B3 → F5 → D5** is the required sequence.
+
+### Things a new session must not rediscover
+
+- **The branch-coverage floor is 0.55, not the 0.60 in A2's text.** Deliberate; raising it is part of H1.
+- **`java:S3776` is off on purpose.** See A3. Do not "fix" it by narrowing the pattern.
+- **Boot 4 auto-configuration modules.** Adding a third-party library does not bring its auto-configuration, and nothing warns you — the context just fails later. This already cost us Flyway silently not running, and a set of exclusions that silently stopped applying.
+- **`baseline-on-migrate: true` skips `V1` against a non-empty database.** See G4.
+- The SonarQube admin password must satisfy the server's policy; `scripts/sonar.sh` defaults to one that does.
+
+### Open questions for the Logius engineer
+
+1. What base path does the ebms-core REST service use today? (Sets the default for `ebms.compat.base-path`, decision D2.)
+2. Is the cluster arm64, or is a single amd64 image enough? (Multi-arch is deferred in I1.)
+3. Do partners use gzip payload compression? (Would make E5 a blocker rather than an enhancement.)
+
+---
+
 ## 1. Goal of 0.1.0
 
 Ship a Message Service Handler that a team currently running **ebms-core** can deploy with a Helm
@@ -208,6 +262,28 @@ Current state: **0 issues, 0 bugs, 0 vulnerabilities, 0 security hotspots, 0 cod
 - `/actuator/info` exposes version, git commit, and build time.
 - `.idea/` is removed from version control and added to `.gitignore`.
 - `README.md` is replaced (see J1).
+
+**Done, except the README (J1).** `/actuator/info` is exposed and reports build version, build time,
+git branch, commit id and commit time, verified against a running container:
+
+```json
+{"git":{"commit":{"id":{"full":"172e21f…","abbrev":"172e21f"},"time":"2026-09-08T18:18:48Z"},
+ "branch":"master"},
+ "build":{"artifact":"ebms-msh","version":"0.1.0-SNAPSHOT","time":"2026-09-08T18:34:34.329Z"}}
+```
+
+`build-info.properties` comes from the Boot plugin and `git.properties` from
+`git-commit-id-maven-plugin` (pinned at 9.0.1 — 10.x requires Maven 3.9 and local Maven is 3.8.7).
+`.git` was removed from `.dockerignore` so an image reports the commit it was built from; the plugin
+still degrades rather than failing when there is no git directory. `.idea/` was already ignored and
+untracked.
+
+**A latent Spring Boot 4 bug found while doing this.** `application.yml` excluded
+`org.springframework.boot.autoconfigure.jms.activemq.ActiveMQAutoConfiguration` and
+`…jms.JmsAutoConfiguration`. Boot 4 moved both into per-technology modules, so those names no longer
+resolve — and an exclusion naming a class that is not on the classpath is *silently ignored*. JMS
+auto-configuration was therefore live for everyone instead of opt-in behind `ebms.jms.broker-url`.
+Both names are corrected. Worth remembering as a class of upgrade bug that no test catches.
 
 ---
 
@@ -813,6 +889,14 @@ level; a correlation id flows from the API through to the outbound send.
 expiry, error details, payload store); migrations are tested against a database with existing data;
 `ddl-auto` stays `validate`; a rollback note per migration.
 
+**Concrete instance found while verifying I1.** `spring.flyway.baseline-on-migrate: true` means that
+against any non-empty database Flyway records a baseline and **skips `V1` entirely**. Pointed at a
+database that already had Hibernate-generated tables from an old `ddl-auto` run, the application
+baselined, skipped the schema, and then failed at startup with
+`Schema validation: wrong column type encountered in column [content] in table [payloads]; found
+[oid], but expecting [bytea]` — an error that says nothing about the actual cause. A fresh database
+is fine, so this will not bite the initial Logius deployment, but it is exactly the trap this story
+exists to close: the failure mode is silent adoption of a schema nobody wrote.
 ---
 
 ## 11. Epic H — Testing
@@ -871,6 +955,24 @@ Item 3. **AC:** the release workflow publishes `ghcr.io/<org>/ebms-integrate:0.1
 starts with a read-only root filesystem; the Dockerfile pins a digest for the base image; the image
 is scanned in CI. *The release workflow currently builds only on `v*` tags — a snapshot publish job
 on `master` is needed for the engineer to pull anything today.*
+
+**Done, single-arch.** `release.yml` now triggers on `master` as well as `v*` tags, with a
+`snapshot` job publishing `ghcr.io/<owner>/ebms-integrate` tagged `0.1.0-SNAPSHOT` (read from the
+POM, not hard-coded), `master`, and the commit sha. Both jobs scan the image with Trivy at
+HIGH/CRITICAL and `ignore-unfixed`, so a build fails on something we can actually act on rather than
+on an unpatched base-image CVE.
+
+The image was built and run locally to verify: it runs as **uid 10001** (`ebms`, no home, no shell),
+starts **with a read-only root filesystem** given a writable `/tmp`, both base images are **pinned by
+digest**, and `/actuator/health` reports `UP` against a real Postgres.
+
+**Multi-arch is deferred, deliberately.** The Dockerfile compiles with Maven inside the build stage,
+so a second architecture means a full Maven build under emulation. Doing it properly means building
+the jar once and having the image only copy it. Not worth it unless the cluster is arm64 — **worth
+one question to the engineer**.
+
+**Deployment note for the chart:** the container needs `readOnlyRootFilesystem: true` paired with an
+`emptyDir` mounted at `/tmp`, and `runAsUser: 10001`.
 
 ### I2. Ship a reference CPA ConfigMap
 Item 1. **AC:** `docs/deploy/` contains a working example ConfigMap with a documented CPA YAML and a

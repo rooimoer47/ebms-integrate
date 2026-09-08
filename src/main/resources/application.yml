@@ -1,8 +1,10 @@
 spring:
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.jms.activemq.ActiveMQAutoConfiguration
-      - org.springframework.boot.autoconfigure.jms.JmsAutoConfiguration
+      # Spring Boot 4 moved these; the old names are silently ignored, which would
+      # leave JMS auto-configuration active for everyone instead of opt-in.
+      - org.springframework.boot.activemq.autoconfigure.ActiveMQAutoConfiguration
+      - org.springframework.boot.jms.autoconfigure.JmsAutoConfiguration
   datasource:
     url: jdbc:postgresql://localhost:5432/ebms
     username: ebms
@@ -21,7 +23,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,info,prometheus
+  info:
+    git:
+      mode: full
   metrics:
     tags:
       application: ebms-msh
