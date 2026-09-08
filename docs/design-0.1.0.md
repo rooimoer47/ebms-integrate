@@ -82,6 +82,30 @@ LTS**. The Spring milestone repository is no longer needed and must be removed.
 `YamlCpaRepository`'s `ObjectMapper`; `spring.http.client.*` property names for the timeouts added
 in C2; `@ConfigurationProperties` binding of `EbmsSecurityProperties`.
 
+**Done.** All 51 tests pass on 4.1.1. Four things had to change, and the first two are the ones to
+know about when adding any dependency from here on:
+
+1. **Boot 4 split the auto-configurations out of `spring-boot-autoconfigure` into per-technology
+   modules.** Declaring a third-party library no longer brings its auto-configuration, and nothing
+   warns you — the context simply fails later, in our case with `Schema validation: missing table
+   [messages]` because Flyway never ran. `spring-boot-flyway` and `spring-boot-restclient` are now
+   explicit dependencies. Starters are unaffected: they pull their own module.
+2. **`TestRestTemplate` is gone**, with no drop-in replacement on the Boot 4 classpath.
+   `EndToEndTest` now uses `RestClient`, which is what production code already uses. One behavioural
+   trap: `RestClient` throws on 4xx/5xx where `TestRestTemplate` returned the response, so the tests
+   that assert on `400` need a permissive status handler. Spring Framework 7's `RestTestClient` is
+   the more idiomatic replacement if we later want fluent assertions.
+3. **Jackson 3 confirmed**, and Boot 4 imports both Jackson BOMs — so Jackson 2 stays resolvable and
+   the duplicate goes unnoticed. `YamlCpaRepository` moved to `tools.jackson.dataformat.yaml.YAMLMapper`
+   and the Jackson 2 dependency is dropped; only `jackson-annotations` remains, which is Jackson 3's
+   own (it keeps the `com.fasterxml.jackson.annotation` package). `CpaFileConfig` needed no change.
+4. `PrometheusMetricsExportAutoConfiguration`, `JmsAutoConfiguration` and `ActiveMQAutoConfiguration`
+   were each verified present on the resolved classpath, since no test covers them and their absence
+   would be silent.
+
+Untouched by the upgrade: JPA entities and Hibernate mappings, the MIME and XML-signature code, and
+every configuration property we set. No compiler deprecation warnings.
+
 ---
 
 ### A2. Measure test coverage

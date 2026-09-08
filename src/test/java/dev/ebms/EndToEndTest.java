@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -61,11 +61,17 @@ class EndToEndTest {
     @LocalServerPort
     int port;
 
-    @Autowired
-    TestRestTemplate http;
+    RestClient http;
 
     @BeforeEach
     void setupCpa() throws IOException {
+        // Spring Boot 4 removed TestRestTemplate. RestClient throws on 4xx/5xx by default,
+        // so error statuses are passed through for the assertions to inspect.
+        http = RestClient.builder()
+                .baseUrl("http://localhost:" + port)
+                .defaultStatusHandler(status -> true, (request, response) -> { })
+                .build();
+
         partnerMsh.stubFor(post(urlEqualTo("/ebms/msh"))
                 .willReturn(ok()
                         .withHeader("Content-Type", "text/xml; charset=UTF-8")
@@ -85,24 +91,20 @@ class EndToEndTest {
                 retries: 3
                 retryIntervalSeconds: 60
                 """.formatted(partnerMsh.baseUrl()));
-        http.postForEntity("/api/cpas/reload", null, Void.class);
+        http.post().uri("/api/cpas/reload").retrieve().toBodilessEntity();
     }
 
     @Test
     void receive_validSoapMessage_returnsAcknowledgmentAndPersistsMessage() {
         String messageId = UUID.randomUUID() + "@partner-a.example.com";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_XML);
-        ResponseEntity<String> response = http.exchange(
-                "/ebms/msh", HttpMethod.POST,
-                new HttpEntity<>(soapEnvelope(messageId), headers), String.class);
+        ResponseEntity<String> response = postSoap(soapEnvelope(messageId));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("Acknowledgment");
         assertThat(response.getBody()).contains(messageId);
 
-        List<?> messages = http.getForEntity("/api/messages?direction=INBOUND", List.class).getBody();
+        List<?> messages = http.get().uri("/api/messages?direction=INBOUND").retrieve().body(List.class);
         @SuppressWarnings("unchecked")
         Map<String, Object> stored = (Map<String, Object>) messages.stream()
                 .map(m -> (Map<?, ?>) m)
@@ -118,17 +120,15 @@ class EndToEndTest {
     @Test
     void receive_duplicateMessage_returnsAcknowledgmentAndStoresOnlyOnce() {
         String messageId = UUID.randomUUID() + "@partner-a.example.com";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_XML);
-        HttpEntity<String> entity = new HttpEntity<>(soapEnvelope(messageId), headers);
+        String envelope = soapEnvelope(messageId);
 
-        http.exchange("/ebms/msh", HttpMethod.POST, entity, String.class);
-        ResponseEntity<String> second = http.exchange("/ebms/msh", HttpMethod.POST, entity, String.class);
+        postSoap(envelope);
+        ResponseEntity<String> second = postSoap(envelope);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(second.getBody()).contains("Acknowledgment");
 
-        List<?> messages = http.getForEntity("/api/messages?direction=INBOUND", List.class).getBody();
+        List<?> messages = http.get().uri("/api/messages?direction=INBOUND").retrieve().body(List.class);
         long count = messages.stream()
                 .filter(m -> messageId.equals(((Map<?, ?>) m).get("messageId")))
                 .count();
@@ -137,11 +137,7 @@ class EndToEndTest {
 
     @Test
     void receive_malformedSoap_returns400WithErrorList() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_XML);
-        ResponseEntity<String> response = http.exchange(
-                "/ebms/msh", HttpMethod.POST,
-                new HttpEntity<>("<not-soap/>", headers), String.class);
+        ResponseEntity<String> response = postSoap("<not-soap/>");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("ErrorList");
@@ -150,12 +146,8 @@ class EndToEndTest {
 
     @Test
     void receive_unknownCpa_returns400WithErrorList() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_XML);
-        ResponseEntity<String> response = http.exchange(
-                "/ebms/msh", HttpMethod.POST,
-                new HttpEntity<>(soapEnvelope(UUID.randomUUID() + "@partner-a.example.com", "cpa-unknown"), headers),
-                String.class);
+        ResponseEntity<String> response =
+                postSoap(soapEnvelope(UUID.randomUUID() + "@partner-a.example.com", "cpa-unknown"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("ErrorList");
@@ -172,7 +164,7 @@ class EndToEndTest {
                 "payloads", List.of()
         );
 
-        ResponseEntity<Map> response = http.postForEntity("/api/messages", request, Map.class);
+        ResponseEntity<Map> response = postJson(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         @SuppressWarnings("unchecked")
@@ -193,7 +185,7 @@ class EndToEndTest {
                 "action", "NewOrder",
                 "payloads", List.of()
         );
-        ResponseEntity<Map> sendResponse = http.postForEntity("/api/messages", request, Map.class);
+        ResponseEntity<Map> sendResponse = postJson(request);
         assertThat(sendResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         @SuppressWarnings("unchecked")
         Map<String, Object> sent = sendResponse.getBody();
@@ -201,18 +193,32 @@ class EndToEndTest {
         String sentMessageId = (String) sent.get("messageId");
         String sentId = (String) sent.get("id");
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_XML);
-        String ackEnvelope = acknowledgmentEnvelope(sentMessageId);
-        ResponseEntity<String> ackResponse = http.exchange(
-                "/ebms/msh", HttpMethod.POST,
-                new HttpEntity<>(ackEnvelope, headers), String.class);
+        ResponseEntity<String> ackResponse = postSoap(acknowledgmentEnvelope(sentMessageId));
 
         assertThat(ackResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> updated = http.getForObject("/api/messages/" + sentId, Map.class);
+        Map<String, Object> updated = http.get().uri("/api/messages/" + sentId).retrieve().body(Map.class);
         assertThat(updated).containsEntry("status", "ACKED");
+    }
+
+    private ResponseEntity<String> postSoap(String envelope) {
+        return http.post()
+                .uri("/ebms/msh")
+                .contentType(MediaType.TEXT_XML)
+                .body(envelope)
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private ResponseEntity<Map> postJson(Map<String, Object> request) {
+        return http.post()
+                .uri("/api/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toEntity(Map.class);
     }
 
     private static String acknowledgmentEnvelope(String refToMessageId) {

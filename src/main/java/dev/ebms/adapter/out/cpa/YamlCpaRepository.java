@@ -1,7 +1,5 @@
 package dev.ebms.adapter.out.cpa;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.Party;
@@ -10,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import tools.jackson.dataformat.yaml.YAMLMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,7 +31,7 @@ public class YamlCpaRepository implements CpaRepository {
     private final Map<String, Cpa> cpas = new ConcurrentHashMap<>();
     private final Path cpaDirectory;
     private final String ourPartyId;
-    private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
+    private final YAMLMapper yaml = YAMLMapper.builder().build();
     private final CpaXmlParser xmlParser = new CpaXmlParser();
 
     public YamlCpaRepository(

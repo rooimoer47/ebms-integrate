@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.5</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -39,6 +39,18 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Spring Boot 4 split the auto-configurations out of spring-boot-autoconfigure
+             into per-technology modules. These two are not pulled in by any starter we
+             use: spring-boot-flyway configures Flyway, spring-boot-restclient supplies
+             the RestClient.Builder that HttpMessageTransport injects. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
@@ -52,9 +64,9 @@
             <groupId>org.eclipse.angus</groupId>
             <artifactId>angus-mail</artifactId>
         </dependency>
-        <!-- YAML support for CPA configuration files -->
+        <!-- YAML support for CPA configuration files (Jackson 3, matching Spring Boot 4) -->
         <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <groupId>tools.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
         <!-- Metrics: Spring Actuator + Prometheus registry -->
