@@ -43,55 +43,76 @@ class CpaXmlParser {
             throw new IllegalArgumentException("Missing cpaid attribute in CPA file: " + file);
         }
 
+        PartyInfoPair parties = selectPartyInfo(doc, xpath, ourPartyId, file);
+        ReliableMessaging rm = extractReliableMessaging(doc, xpath);
+
+        return new Cpa(
+                cpaId,
+                extractParty(parties.ours(), xpath),
+                extractParty(parties.partner(), xpath),
+                extractTransportUrl(parties.partner(), xpath),
+                rm.ackRequested(),
+                rm.duplicateElimination(),
+                rm.retries(),
+                rm.retryInterval(),
+                extractCertificate(parties.partner(), xpath, file));
+    }
+
+    private record PartyInfoPair(Node ours, Node partner) {}
+
+    /** A CPA describes both parties; pick ours by party id, falling back to document order. */
+    private PartyInfoPair selectPartyInfo(Document doc, XPath xpath, String ourPartyId, Path file)
+            throws XPathExpressionException {
         NodeList partyInfoNodes = (NodeList) xpath.evaluate(
                 "/cpa:CollaborationProtocolAgreement/cpa:PartyInfo", doc, XPathConstants.NODESET);
         if (partyInfoNodes.getLength() < 2) {
             throw new IllegalArgumentException("CPA must have at least 2 PartyInfo elements: " + file);
         }
 
-        Node ourPartyInfo = null;
-        Node partnerPartyInfo = null;
-
+        Node ours = null;
+        Node partner = null;
         if (ourPartyId != null && !ourPartyId.isBlank()) {
             for (int i = 0; i < partyInfoNodes.getLength(); i++) {
-                Node pi = partyInfoNodes.item(i);
-                String partyId = extractPartyId(pi, xpath);
-                if (ourPartyId.equals(partyId)) {
-                    ourPartyInfo = pi;
+                Node partyInfo = partyInfoNodes.item(i);
+                if (ourPartyId.equals(extractPartyId(partyInfo, xpath))) {
+                    ours = partyInfo;
                 } else {
-                    partnerPartyInfo = pi;
+                    partner = partyInfo;
                 }
             }
         }
-        if (ourPartyInfo == null) {
-            ourPartyInfo = partyInfoNodes.item(0);
-            partnerPartyInfo = partyInfoNodes.item(1);
+        if (ours == null) {
+            ours = partyInfoNodes.item(0);
+            partner = partyInfoNodes.item(1);
         }
+        return new PartyInfoPair(ours, partner);
+    }
 
-        Party fromParty = extractParty(ourPartyInfo, xpath);
-        Party toParty = extractParty(partnerPartyInfo, xpath);
-        String transportUrl = extractTransportUrl(partnerPartyInfo, xpath);
-        X509Certificate partnerCert = extractCertificate(partnerPartyInfo, xpath, file);
+    private record ReliableMessaging(boolean ackRequested, boolean duplicateElimination,
+                                     int retries, Duration retryInterval) {}
 
+    private ReliableMessaging extractReliableMessaging(Document doc, XPath xpath) throws XPathExpressionException {
         Node rm = (Node) xpath.evaluate(".//cpa:ReliableMessaging", doc, XPathConstants.NODE);
-        boolean ackRequested = rm != null;
-        boolean duplicateElimination = rm != null &&
-                ((NodeList) xpath.evaluate("cpa:DuplicateElimination", rm, XPathConstants.NODESET)).getLength() > 0;
-        int retries = 3;
-        Duration retryInterval = Duration.ofSeconds(60);
-        if (rm != null) {
-            String retriesStr = xpath.evaluate("cpa:Retries", rm).trim();
-            if (!retriesStr.isBlank()) {
-                retries = Integer.parseInt(retriesStr);
-            }
-            String intervalStr = xpath.evaluate("cpa:RetryInterval", rm).trim();
-            if (!intervalStr.isBlank()) {
-                retryInterval = Duration.parse(intervalStr);
-            }
+        if (rm == null) {
+            return new ReliableMessaging(false, false, 3, Duration.ofSeconds(60));
         }
 
-        return new Cpa(cpaId, fromParty, toParty, transportUrl,
-                ackRequested, duplicateElimination, retries, retryInterval, partnerCert);
+        boolean duplicateElimination =
+                ((NodeList) xpath.evaluate("cpa:DuplicateElimination", rm, XPathConstants.NODESET)).getLength() > 0;
+
+        int retries = 3;
+        String retriesStr = xpath.evaluate("cpa:Retries", rm).trim();
+        if (!retriesStr.isBlank()) {
+            retries = Integer.parseInt(retriesStr);
+        }
+
+        Duration retryInterval = Duration.ofSeconds(60);
+        String intervalStr = xpath.evaluate("cpa:RetryInterval", rm).trim();
+        if (!intervalStr.isBlank()) {
+            retryInterval = Duration.parse(intervalStr);
+        }
+
+        return new ReliableMessaging(true, duplicateElimination, retries, retryInterval);
     }
 
     private String extractCpaId(Document doc) {

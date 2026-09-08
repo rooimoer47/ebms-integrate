@@ -56,6 +56,25 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # Static analysis. Behind a profile so it does not start with normal local
+  # development: `docker compose --profile sonar up -d sonarqube`, or just run
+  # ./scripts/sonar.sh which does this and the scan.
+  sonarqube:
+    image: sonarqube:26.9.0.129388-community
+    profiles: ["sonar"]
+    ports:
+      # Override with SONAR_PORT when 9000 is already taken on this machine.
+      - "${SONAR_PORT:-9000}:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-extensions:/opt/sonarqube/extensions
+
 volumes:
   postgres_data:
   grafana-data:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-extensions:

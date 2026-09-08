@@ -4,7 +4,7 @@ import dev.ebms.config.EbmsSecurityProperties;
 import dev.ebms.domain.Payload;
 import dev.ebms.domain.exception.MessageParseException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -30,7 +30,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
-@Component
+@Service
 public class XmlEncryptionService {
 
     private static final String XENC_NS = "http://www.w3.org/2001/04/xmlenc#";

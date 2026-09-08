@@ -19,10 +19,25 @@
 
     <properties>
         <java.version>21</java.version>
-        <!-- Disable cognitive complexity rule project-wide — parser logic is inherently branchy -->
+        <!-- Coverage floor. The target is 0.70/0.60 (story A2); branch sits below that until the
+             Epic H test gaps are closed, so the gate is set at today's level and ratcheted up. -->
+        <jacoco.version>0.8.15</jacoco.version>
+        <sonar.maven.plugin.version>5.8.0.7211</sonar.maven.plugin.version>
+        <jacoco.line.minimum>0.70</jacoco.line.minimum>
+        <jacoco.branch.minimum>0.55</jacoco.branch.minimum>
+        <!-- Analysis settings live here, not in sonar-project.properties: the Maven
+             scanner reads the POM and ignores that file. -->
+        <sonar.projectKey>ebms-msh</sonar.projectKey>
+        <sonar.projectName>ebMS MSH</sonar.projectName>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.junit.reportPaths>${project.build.directory}/surefire-reports</sonar.junit.reportPaths>
+        <sonar.coverage.exclusions>**/EbmsApplication.java,**/*Entity.java</sonar.coverage.exclusions>
+        <!-- Cognitive complexity is suppressed only where the branchiness is inherent:
+             MIME/XML parsing and serialisation driven by the ebMS 2.0 message structure.
+             It used to be suppressed across ** , which hid the rule everywhere. -->
         <sonar.issue.ignore.multicriteria>cc</sonar.issue.ignore.multicriteria>
         <sonar.issue.ignore.multicriteria.cc.ruleKey>java:S3776</sonar.issue.ignore.multicriteria.cc.ruleKey>
-        <sonar.issue.ignore.multicriteria.cc.resourceKey>**</sonar.issue.ignore.multicriteria.cc.resourceKey>
+        <sonar.issue.ignore.multicriteria.cc.resourceKey>**/adapter/in/msh/SoapMime*.java</sonar.issue.ignore.multicriteria.cc.resourceKey>
     </properties>
 
     <dependencies>
@@ -114,6 +129,61 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>${sonar.maven.plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <!-- test, not verify, so the documented `mvn package` still produces
+                             target/site/jacoco. The gate below stays on verify. -->
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.line.minimum}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.branch.minimum}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludes>
+                        <!-- Bootstrap and JPA data carriers: no logic to cover, and leaving them in
+                             the denominator only makes the number easier to game. -->
+                        <exclude>dev/ebms/EbmsApplication.class</exclude>
+                        <exclude>dev/ebms/adapter/out/persistence/*Entity.class</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
