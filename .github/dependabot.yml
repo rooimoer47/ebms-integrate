@@ -6,13 +6,35 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      # Minor and patch bumps arrive as one reviewable PR; majors stay
+      # individual, because those are the ones worth reading.
+      maven-minor-and-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Java 21 LTS is deliberate. Digest updates are wanted — they carry the
+      # base-image security patches — but moves to a newer feature release are not.
+      - dependency-name: eclipse-temurin
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      - dependency-name: maven
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
