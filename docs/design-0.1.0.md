@@ -52,7 +52,7 @@ the engineer and are called out in the table rather than left implicit.
 
 | # | Decision | Settled as | What that means for the work |
 |---|---|---|---|
-| D1 | **CPA source of truth** | **Read-only for now** — YAML files in a ConfigMap, no write API. | GitOps-friendly, matches the Helm chart already being written, and no CPA migration story for 0.1.0. `POST /cpas` and `DELETE /cpas/{cpaId}` answer 405 (story D5). **Still open with the engineer:** does `cpa-service` write CPAs at runtime? If it does, the database-backed variant becomes a planned post-0.1.0 story rather than a surprise during rollout. |
+| D1 | **CPA source of truth** | **The database.** `cpa-service` uploads a CPA to us, we persist it, and every pod in every availability zone honours it immediately. | Reverses the earlier read-only answer (revised 2026-09-08). Adds story F5 for the store itself and turns D5 into a full read/write implementation of ebms-core's CPA endpoints; F1 becomes a bootstrap rather than the source of truth. Two consequences worth naming rather than discovering: **B3 stops being optional**, because an unauthenticated `POST /cpas` lets anyone register a trading partner and point our outbound traffic at themselves; and **the per-pod CPA cache has to go**, because it is the only thing that would make two pods disagree. |
 | D2 | **ebms-core API base path** | **Configurable prefix** — one property, `ebms.compat.base-path`. | No code change to re-point, and the default can be set to whatever the Logius deployment uses today. **Still open with the engineer:** what that path currently is. Clients then change only the hostname. |
 | D3 | **Compat API vs. our own API** | **Keep both.** | `/api/**` is the API we own and evolve for ebMS3/AS4; the compat API is a frozen adapter over ebms-core's contract, deprecable once clients migrate. The rule that keeps this honest: ebms-core's vocabulary must not leak inward — every translation lives in the adapter, never in a service or the domain (see story D3). |
 | D4 | **Auth for the management API** | **Use the mechanism we already have (mTLS), behind a pluggable configuration.** | Story B3 is written so that adding or swapping a mechanism — OAuth2 resource server, basic auth — is a configuration class and a property, not a controller change. |
@@ -174,6 +174,11 @@ and we will accept it.
 
 There is no `spring-boot-starter-security` in the pom. `/api/**`, `/ebms-core/**` and
 `/actuator/prometheus` are open to anyone who can reach the port.
+
+Decision D1 raises the stakes considerably. Once `POST /cpas` writes to the database, an
+unauthenticated caller can register a trading partner and choose its `transportUrl` — which
+redirects our outbound messages to a destination of their choosing, and does so persistently, across
+every pod. **The CPA write endpoints must not be exposed before this story lands.**
 
 **Acceptance criteria**
 - Spring Security is added. `/api/**` and the compat API require authentication.
@@ -502,20 +507,21 @@ Ping/Pong exchange with the partner. Depends on E1.
 
 ---
 
-### D5. CPA endpoints (read-shaped, per decision D1)
+### D5. CPA endpoints
 **As** the owner of `cpa-service`, **I want** the CPA endpoints to answer **so that** my service
 does not need restructuring.
 
-ebms-core exposes: `GET /cpas` (list ids), `GET /cpas/{cpaId}` (the CPA XML), `POST /cpas`
-(insert, `text/plain` body, `?overwrite=`), `POST /cpas/validate`, `DELETE /cpas/{cpaId}`,
+ebms-core exposes: `GET /cpas` (list ids), `GET /cpas/{cpaId}` (the CPA document), `POST /cpas`
+(`text/plain` body, `?overwrite=`), `POST /cpas/validate`, `DELETE /cpas/{cpaId}`,
 `DELETE /cpas/cache`.
 
-**Acceptance criteria (under D1 = files as source of truth)**
-- `GET /cpas` and `GET /cpas/{cpaId}` implemented and returning ebms-core-shaped responses.
-- `POST /cpas/validate` implemented (validates against the CPPA 2.0 XSD — see F3).
-- `DELETE /cpas/cache` maps to our existing reload.
-- `POST /cpas` and `DELETE /cpas/{cpaId}` return `405` with a body explaining that CPAs are managed as configuration in this deployment, and naming the ConfigMap.
-- **If `cpa-service` writes CPAs at runtime, this story changes materially** — flag it early; it becomes the database-backed option (D1b).
+**Acceptance criteria** — all six are real endpoints under decision D1. Depends on F5.
+- All six implemented with ebms-core's shapes: `text/plain` request bodies, the `overwrite` query parameter, and the same status codes.
+- `POST /cpas` with `overwrite=false` against an existing `cpaId` conflicts rather than silently replacing; with `overwrite=true` it replaces.
+- `POST /cpas/validate` validates without persisting (F3).
+- `DELETE /cpas/cache` succeeds and is documented as a no-op: with no per-pod cache (F5) there is nothing to clear. Keeping the endpoint means `cpa-service` needs no change for it.
+- Every write endpoint sits behind authentication (B3) before it is exposed anywhere.
+- Contract-tested against `docs/compat/ebms-core-cpas-api.json` (H3, J4).
 
 ---
 
@@ -621,19 +627,21 @@ processed; clock-skew tolerance is configurable; tests for emit, omit, expired-i
 
 ## 9. Epic F — CPA model
 
-### F1. CPAs from a ConfigMap
-**As** the engineer deploying the chart, **I want** CPA files mounted from a ConfigMap **so that**
-CPAs are managed as configuration.
+### F1. CPAs bootstrapped from a ConfigMap
+**As** the engineer deploying the chart, **I want** the ConfigMap I have already built to seed a
+fresh environment **so that** a new namespace comes up with known CPAs and the chart work is not
+wasted.
 
-This is item 1 on the deployment list. Mostly already true — `YamlCpaRepository` reads a directory —
-but needs to be made deliberate.
+Under decision D1 the database is the source of truth, so the mounted files are no longer *the* CPAs
+— they are a bootstrap. That keeps the `ebms-integrate-cpas` ConfigMap useful (item 1 on the
+deployment list) without creating two competing sources of truth.
 
-**AC:** the CPA directory is configurable by env var (it is: `CPA_DIRECTORY`) and documented as the
-ConfigMap mount point; a read-only mount works; a malformed CPA file logs a clear error and does not
-prevent the other CPAs (or the application) from starting; **startup fails loudly if the directory
-is missing or empty**, rather than warning and continuing with zero CPAs as it does today; the
-reload endpoint is documented for post-ConfigMap-update refresh; an example ConfigMap YAML ships in
-`docs/deploy/`.
+**AC:** on startup, **and only when the CPA table is empty**, CPAs in the mounted directory are
+loaded into the database and logged as a bootstrap. Seeding never updates or resurrects an existing
+CPA — otherwise deleting a CPA through the API would be silently undone by the next pod restart,
+which is the obvious trap in this design. Seeding is disabled by a property, and with it disabled a
+missing directory is not an error. A malformed file names itself in the log and stops neither
+startup nor the other CPAs. An example ConfigMap ships in `docs/deploy/`.
 
 ### F2. Party roles
 ebMS 2 `From`/`To` carry a `Role`; ebms-core's API requires `fromRole` and exposes `toRole`; our
@@ -653,6 +661,32 @@ Several CPA-level settings are read but not honoured, or not present at all: syn
 signing/encryption requirements (B2), per-CPA timeouts (C2), TTL (C4), compression (E5), roles (F2).
 **AC:** one table in the README listing every CPA setting, where it is honoured in the code, and its
 default; a test per setting proving it changes behaviour.
+
+### F5. Database-backed CPA store
+**As** the owner of `cpa-service`, **I want** to upload a CPA once and have every pod honour it
+**so that** onboarding a partner does not require a deploy.
+
+This is decision D1, and the storage is the easy half. `YamlCpaRepository` keeps CPAs in a per-pod
+`ConcurrentHashMap` filled at `@PostConstruct`; two pods started at different times can disagree
+about which partners exist, and nothing propagates a change between them. Fixing *that* is the
+story.
+
+**Store the uploaded document verbatim.** Our `Cpa` record is a flattened nine-field projection, and
+ebms-core's `GET /cpas/{cpaId}` returns the CPA document itself — so the original bytes have to be
+kept and the projection derived from them on read. Persisting only the projection makes that
+endpoint unimplementable and throws away everything in the agreement we do not model yet.
+
+**Acceptance criteria**
+- Flyway `V3` adds a `cpa` table: unique `cpa_id`, the raw document and its content type, a version or updated-at column for optimistic locking, and upload metadata (when, and by whom once B3 lands).
+- `CpaRepository` gains `save` and `deleteByCpaId`; a `JpaCpaRepositoryAdapter` implements it. `YamlCpaRepository` is reduced to the F1 bootstrap loader and no longer implements the port.
+- **No per-pod cache in 0.1.0.** Lookups read through to the database, so pods and availability zones cannot disagree and there is no invalidation protocol to get wrong. This is one indexed primary-key read per message against a table with tens of rows; H4 measures it, and a short-TTL cache is added *only* if that measurement says it matters. Cross-pod cache invalidation is explicitly not what we reach for first.
+- Both formats are accepted on upload: CPPA 2.0 XML — what ebms-core takes, and what our existing `CpaXmlParser` already handles — and our YAML. XML is the documented format for `cpa-service`.
+- Two pods uploading the same `cpaId` concurrently resolve deterministically through the unique constraint: one wins, the other gets a clear conflict, and neither leaves a partial write.
+- A test proves the actual requirement: two application contexts against one database, one uploads a CPA, the other resolves it on the next message with no restart and no reload call.
+
+**Note on certificates.** The YAML format resolves `recipientCertPath` relative to the CPA file,
+which cannot survive a move into the database. CPPA XML embeds the certificate, so the XML path is
+the one that works; YAML uploads must carry the certificate inline rather than by path.
 
 ---
 
@@ -849,8 +883,11 @@ B1 signature trust · B2 CPA security policy · B3 API auth · B5 input limits �
 C1 transaction boundary · C2 timeouts · C3 retry locking · C5 error responses · C6 duplicate race
 
 **Milestone 3 — Smooth transition**
-D1–D7 compat API · F1 ConfigMap · F2 roles · E1 ping · E3 sync/async · I2 reference ConfigMap
-I3 migration note · C4 backoff and TTL · E8 `TimeToLive`
+D1–D7 compat API · F5 CPA store · F1 CPA bootstrap · F2 roles · E1 ping · E3 sync/async
+I2 reference ConfigMap · I3 migration note · C4 backoff and TTL · E8 `TimeToLive`
+
+*Order within the milestone: B3 before F5, and F5 before D5. The CPA write endpoints must not exist
+before the authentication that guards them.*
 
 **Milestone 4 — Prove it**
 J4 OpenAPI documents (do this before H3) · H1–H3 tests · H4 performance baseline · H5 interop against ebms-core · C7 list queries
@@ -885,9 +922,9 @@ B4 (inbound mTLS, if the ingress terminates TLS).
 | `/cpas` | GET | D5 | Planned |
 | `/cpas/{cpaId}` | GET | D5 | Planned |
 | `/cpas/validate` | POST | D5 | Planned |
-| `/cpas/cache` | DELETE | D5 | Planned (maps to reload) |
-| `/cpas` | POST | D5 | 405 under decision D1 |
-| `/cpas/{cpaId}` | DELETE | D5 | 405 under decision D1 |
+| `/cpas/cache` | DELETE | D5 | Planned (no-op; no per-pod cache) |
+| `/cpas` | POST | D5 | Planned |
+| `/cpas/{cpaId}` | DELETE | D5 | Planned |
 | `/urlMappings/*` | — | D8 | Out of scope |
 | `/certificateMappings/*` | — | D8 | Out of scope |
 | SOAP/WSDL service | — | D8 | Out of scope |
@@ -923,6 +960,8 @@ Concrete defects verified in the current code, each mapped to the story that fix
 | `SoapMimeSerializer` / `SoapMimeParser` | `eb:TimeToLive` is neither emitted nor honoured | E8 |
 | `pom.xml` | No `springdoc-openapi`; no generated API contract to diff against ebms-core's | J4 |
 | `YamlCpaRepository.java:49` | Missing CPA directory logs a warning and continues with zero CPAs | F1 |
+| `YamlCpaRepository.java` | CPAs cached per pod in a `ConcurrentHashMap` filled at `@PostConstruct`; pods disagree and nothing propagates a change | F5 |
+| `Cpa.java` | Flattened projection only; the uploaded document is not retained, so `GET /cpas/{cpaId}` cannot return it | F5 |
 | `SoapMimeParser.java` | No `eb:Manifest` validation on receive | E4 |
 | `pom.xml:23-25` | `java:S3776` suppressed project-wide across `**` | A3 |
 | `pom.xml` | Spring Boot 3.4.5 while `CLAUDE.md` claims Spring Boot 4 | A1 |
