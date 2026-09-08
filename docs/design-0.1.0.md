@@ -1,6 +1,7 @@
 # ebms-integrate 0.1.0 — Release Design
 
-> Status: **draft for review**. Everything below is a proposal; nothing has been built yet.
+> Status: **reviewed 2026-09-08** — the five decisions in section 3 are settled and folded in.
+> The stories themselves remain proposals; nothing has been built yet.
 > Companion to `docs/design.md` (the original MVP architecture), which remains accurate for the
 > hexagonal structure. This document defines what has to change to get from "working MVP" to
 > "deployable 0.1.0 that Logius can run in place of ebms-core".
@@ -25,7 +26,7 @@ Three things define "done":
 
 We are **not** re-implementing ebms-core. We are matching its *edges* — the REST contract, the JMS
 event shape, the message lifecycle vocabulary — while keeping the inside small, modern, and ready
-for ebMS3/AS4 and AS2 to be added alongside ebMS2. Where ebms-core has a feature we do not need
+for ebMS3/AS4 to be added alongside ebMS2. Where ebms-core has a feature we do not need
 (MTOM, URL mappings, certificate mappings, five database dialects), we say so and leave it out.
 
 ---
@@ -44,17 +45,18 @@ payload encryption, Prometheus metrics, a JMS event publisher, a four-endpoint e
 
 ---
 
-## 3. Decisions needed before work starts
+## 3. Decisions — settled 2026-09-08
 
-These change the shape of the work and are the user's call, not mine. Each has a recommendation.
+All five are decided. The stories below assume these answers; two facts are still outstanding from
+the engineer and are called out in the table rather than left implicit.
 
-| # | Decision | Options | Recommendation |
+| # | Decision | Settled as | What that means for the work |
 |---|---|---|---|
-| D1 | **CPA source of truth** | (a) files in a ConfigMap, read-only API; (b) database-backed with a writable ebms-core-style `POST /cpas`; (c) both, files bootstrap the DB | **(a)** for 0.1.0. GitOps-friendly, matches how the Helm chart is already being written, no migration story needed. `cpa-service` becomes read-only against us. If it must write CPAs at runtime, we need (b) and that is a bigger story. |
-| D2 | **ebms-core API base path** | Mount the compat API at ebms-core's exact path, or at a configurable prefix | **Configurable prefix**, defaulting to whatever the Logius deployment uses today. Needs one fact from the engineer: the current base path of the ebms-core REST service (`/rest/v20/ebms` or similar). Then clients change nothing but the hostname. |
-| D3 | **Compat API vs. our own API** | Keep both `/api/**` and the ebms-core-shaped API, or collapse to one | **Keep both.** `/api/**` stays as the clean internal API and the one we evolve for ebMS3/AS2; the compat API is a stable adapter layer we can deprecate once clients migrate. |
-| D4 | **Auth mechanism for the management API** | mTLS, OAuth2 resource server, or basic auth over a cluster-internal service | Confirm what Logius expects. **Default to mTLS + optional basic auth**, since mTLS plumbing already exists for outbound. |
-| D5 | **Message retention / TTL** | Keep everything forever, or expire | **Expire.** Needed anyway for the `EXPIRED` event ebms-core clients may listen for, and for the payload table not to grow without bound. |
+| D1 | **CPA source of truth** | **Read-only for now** — YAML files in a ConfigMap, no write API. | GitOps-friendly, matches the Helm chart already being written, and no CPA migration story for 0.1.0. `POST /cpas` and `DELETE /cpas/{cpaId}` answer 405 (story D5). **Still open with the engineer:** does `cpa-service` write CPAs at runtime? If it does, the database-backed variant becomes a planned post-0.1.0 story rather than a surprise during rollout. |
+| D2 | **ebms-core API base path** | **Configurable prefix** — one property, `ebms.compat.base-path`. | No code change to re-point, and the default can be set to whatever the Logius deployment uses today. **Still open with the engineer:** what that path currently is. Clients then change only the hostname. |
+| D3 | **Compat API vs. our own API** | **Keep both.** | `/api/**` is the API we own and evolve for ebMS3/AS4; the compat API is a frozen adapter over ebms-core's contract, deprecable once clients migrate. The rule that keeps this honest: ebms-core's vocabulary must not leak inward — every translation lives in the adapter, never in a service or the domain (see story D3). |
+| D4 | **Auth for the management API** | **Use the mechanism we already have (mTLS), behind a pluggable configuration.** | Story B3 is written so that adding or swapping a mechanism — OAuth2 resource server, basic auth — is a configuration class and a property, not a controller change. |
+| D5 | **Message retention / TTL** | **Configurable TTL; `-1` (or absent) means never expires.** | Per-CPA with a global default, `-1` preserving today's keep-forever behaviour so nothing changes on upgrade. This turns out to be exactly what both specs and ebms-core already do — see story C4, which also picks up the missing `TimeToLive` handling (E8). |
 
 ---
 
@@ -174,7 +176,8 @@ There is no `spring-boot-starter-security` in the pom. `/api/**`, `/ebms-core/**
 `/actuator/prometheus` are open to anyone who can reach the port.
 
 **Acceptance criteria**
-- Spring Security is added. `/api/**` and the compat API require authentication (mechanism per D4).
+- Spring Security is added. `/api/**` and the compat API require authentication.
+- Per decision D4 the mechanism is **mTLS**, reusing the keystore plumbing that already exists for outbound calls, and it is selected by configuration: the authentication mechanism is a swappable `SecurityFilterChain` configuration chosen by property, so adding OAuth2 resource-server or basic auth later touches no controller and no test of business behaviour.
 - `/ebms/msh` stays open to unauthenticated HTTP (partners authenticate at the message and TLS layers, per B1/B4) but is subject to B5.
 - `/actuator/health/liveness` and `/readiness` stay open for kubelet probes; `/actuator/prometheus` is either restricted or bound to a separate management port (preferred in k8s).
 - Credentials come from environment/secret, never from a checked-in file.
@@ -281,9 +284,21 @@ the `EXPIRED` event ebms-core clients may be listening for.
 
 **Acceptance criteria**
 - Exponential backoff with jitter, bounded by a per-CPA maximum interval; the fixed interval remains configurable for parity.
-- A per-CPA time-to-live: a message that cannot be delivered within it becomes `EXPIRED` and emits the `EXPIRED` event (D6).
-- `FAILED` (retries exhausted) and `EXPIRED` (TTL passed) are distinct and both reachable.
-- Tests for both terminal transitions.
+- A time-to-live per CPA with a global default, where **`-1` or an absent value means "never expires"** (decision D5). A message not delivered within it becomes `EXPIRED` and emits the `EXPIRED` event (D6).
+- `FAILED` (retries exhausted) and `EXPIRED` (TTL elapsed) are distinct and both reachable.
+- Tests for both terminal transitions, and for a `-1` TTL that never expires.
+
+**This is not ours to invent — both specs already define it, and it is how ebms-core works.**
+ebMS 2.0 has an optional `eb:MessageHeader/eb:TimeToLive` (a `dateTime`); CPPA 2.0 has
+`tp:PersistDuration` on the receiver binding. ebms-core derives the one from the other in
+`CPAUtils.getPersistTime`, and `DeliveryTaskHandler` expires a task once `Instant.now()` passes it —
+`CREATED → EXPIRED`, plus an `onMessageExpired` event. When `PersistDuration` is absent,
+`getPersistTime` returns null and the task never expires. **Our `-1` is exactly that null**, so the
+chosen semantics match ebms-core precisely.
+
+Two consequences: the TTL should be modelled as a duration on the CPA named for the spec concept
+rather than as a bare configuration knob, and this story now depends on **E8**, because we neither
+emit nor honour `TimeToLive` today.
 
 ---
 
@@ -417,28 +432,64 @@ consumer logic is unchanged.
 **As** the owner of `jms-consumer`, **I want** the status values I already switch on **so that** my
 state machine is unchanged.
 
-ebms-core statuses: `UNAUTHORIZED`, `NOT_RECOGNIZED`, `RECEIVED`, `PROCESSED`, `FORWARDED`,
-`FAILED`, `CREATED`, `DELIVERY_FAILED`, `DELIVERED`, `EXPIRED`.
+**Where these values come from — half spec, half ebms-core.** Verified against the OASIS
+`msg-header-2_0.xsd` and `nl.clockwork.ebms.EbMSMessageStatus` at the vendored commit:
 
-Proposed mapping from our `MessageStatus`:
+| ebms-core value | id | On the wire as | Origin |
+|---|---|---|---|
+| `UNAUTHORIZED` | 0 | `UnAuthorized` | ebMS 2.0 `messageStatus.type` |
+| `NOT_RECOGNIZED` | 1 | `NotRecognized` | ebMS 2.0 `messageStatus.type` |
+| `RECEIVED` | 2 | `Received` | ebMS 2.0 `messageStatus.type` |
+| `PROCESSED` | 3 | `Processed` | ebMS 2.0 `messageStatus.type` |
+| `FORWARDED` | 4 | `Forwarded` | ebMS 2.0 `messageStatus.type` |
+| `FAILED` | 5 | `Received` (aliased) | ebms-core |
+| `CREATED` | 10 | — never on the wire | ebms-core |
+| `DELIVERY_FAILED` | 11 | — | ebms-core |
+| `DELIVERED` | 12 | — | ebms-core |
+| `EXPIRED` | 13 | — | ebms-core |
 
-| Ours | Direction | ebms-core |
-|---|---|---|
-| `RECEIVED`, `processed=false` | inbound | `RECEIVED` |
-| `RECEIVED`, `processed=true` | inbound | `PROCESSED` |
-| `PENDING_SEND` | outbound | `CREATED` |
-| `SENT` (awaiting ack) | outbound | `CREATED` |
-| `ACKED` | outbound | `DELIVERED` |
-| `FAILED` (retries exhausted) | outbound | `DELIVERY_FAILED` |
-| `EXPIRED` (new, C4) | outbound | `EXPIRED` |
-| rejected: bad signature / untrusted cert | inbound | `UNAUTHORIZED` |
-| rejected: unknown CPA / party | inbound | `NOT_RECOGNIZED` |
+The five spec values are the `StatusResponse/@messageStatus` a partner asks us for over ebMS
+(story E2). They describe what a *receiving* MSH did with a message someone sent it — that is the
+entire scope of the enum in the specification. ebMS 2.0 has no vocabulary at all for the sending
+side, so ebms-core added five values of its own to the same enum and left `statusCode` null on four
+of them. `FAILED` is the awkward one: an inbound failure that reports on the wire as `Received`,
+which is lossy but spec-legal. ebms-core itself splits the enum back apart at runtime into
+`getReceiveStatus()` and `getSendStatus()` — a good sign that the two concepts wanted to be two
+types.
+
+**So: copy core, or do better?** Both, in different places — which is precisely what decision D3
+(keep both APIs) buys us.
+
+- **Our domain and `/api/**` keep the two concepts separate and honest.** A lifecycle status
+  (direction-aware, ours to evolve, extensible for ebMS3/AS4) and a `WireStatus` of exactly the five
+  spec values, used only by the status service in E2. Conflating a local lifecycle with a wire enum
+  is the one thing here we should not inherit.
+- **The compat adapter projects our lifecycle onto ebms-core's ten values, exactly.** Same names,
+  same numeric ids — they are persisted in ebms-core's own database and show up in operator
+  tooling — and the same `FAILED → Received` aliasing.
+
+Proposed projection:
+
+| Ours | Direction | ebms-core | id |
+|---|---|---|---|
+| `RECEIVED`, `processed=false` | inbound | `RECEIVED` | 2 |
+| `RECEIVED`, `processed=true` | inbound | `PROCESSED` | 3 |
+| rejected: bad signature / untrusted certificate | inbound | `UNAUTHORIZED` | 0 |
+| rejected: unknown CPA / party | inbound | `NOT_RECOGNIZED` | 1 |
+| rejected: processing error | inbound | `FAILED` | 5 |
+| `PENDING_SEND` | outbound | `CREATED` | 10 |
+| `SENT` (awaiting ack) | outbound | `CREATED` | 10 |
+| `ACKED` | outbound | `DELIVERED` | 12 |
+| `FAILED` (retries exhausted) | outbound | `DELIVERY_FAILED` | 11 |
+| `EXPIRED` (new, C4) | outbound | `EXPIRED` | 13 |
 
 **Acceptance criteria**
-- The mapping is implemented in one place and unit-tested exhaustively (every one of our states maps to exactly one ebms-core state).
-- The mapping is documented in the README and in this table.
-- `FORWARDED` is unused and documented as never emitted.
-- Review point: is `SENT → CREATED` right for your consumers, or should an unacked send surface differently?
+- Two types exist and never mix: the lifecycle status on the domain, and a five-value wire status used by E2 only.
+- The projection onto ebms-core's ten values lives in exactly one class in the compat adapter, is exhaustive over our lifecycle, and is unit-tested case by case; nothing outside that adapter mentions an ebms-core status name.
+- Numeric ids are emitted wherever ebms-core emits them.
+- `FORWARDED` is unused and documented as never emitted — we do not forward.
+- `MessageStatus.DELIVERED` exists in our enum today and is set nowhere in the codebase. It is removed, or given a defined meaning distinct from `ACKED`, as part of this story.
+- Review point: is `SENT → CREATED` right for your consumers, or should an unacknowledged send be distinguishable from one not yet attempted? ebms-core cannot tell them apart; we can, on `/api/**`, without breaking compat.
 
 ---
 
@@ -557,6 +608,15 @@ partners send imperfect timestamps.
 **AC:** lenient parsing with a defined fallback; a malformed timestamp produces a clear ebMS error
 rather than a generic parse failure; tests for `Z`, `+02:00`, fractional seconds, and zone-less.
 
+### E8. `TimeToLive` on the wire
+We neither emit nor honour `eb:MessageHeader/eb:TimeToLive`. Decision D5 and story C4 both need it,
+and a partner sending it today is silently ignored — we would happily process a message the sender
+considers dead.
+**AC:** outbound messages carry `TimeToLive` derived from the CPA's persist duration when one is
+configured, and omit the element entirely when the TTL is `-1`; an inbound message whose
+`TimeToLive` has already passed is rejected with the spec's `TimeToLive` error rather than
+processed; clock-skew tolerance is configurable; tests for emit, omit, expired-inbound, and skew.
+
 ---
 
 ## 9. Epic F — CPA model
@@ -639,6 +699,7 @@ returning `ErrorList` and a SOAP Fault; async ack mode (E3); ping (E1); status r
 concurrent duplicate delivery (C6).
 
 ### H3. Contract tests against the ebms-core API
+Once J4 lands, most of this is a specification diff rather than hand-written assertions.
 **AC:** a test per compat endpoint asserting the exact wire format against the committed ebms-core
 OpenAPI documents — status codes, content types (`text/plain` where ebms-core returns text/plain),
 field names, and the array-of-strings shape of `/messages/unprocessed`.
@@ -731,9 +792,30 @@ with this document as the current one.
 adapter rather than the core, and why file-based CPAs. Cheap to write now, valuable when someone
 adds AS4.
 
+### J4. Publish OpenAPI documents
+**As** a client developer, **I want** a machine-readable contract **so that** I can generate a client
+and see exactly what changed between releases.
+
+**Yes — and for a reason beyond documentation.** We have committed ebms-core's own OpenAPI documents
+in `docs/compat/`. If we generate ours, story H3 stops being hand-written assertions and becomes a
+**diff between two specification files in CI**: the cheapest available proof of the drop-in claim,
+and one that fails loudly the day someone renames a field. Publishing the internal API's document is
+then close to free.
+
+**AC**
+- `springdoc-openapi` is added; `/v3/api-docs` is served and Swagger UI is available but disabled by default outside development. Both sit behind B3 authentication.
+- Two grouped documents: `internal` (`/api/**`) and `compat` (the ebms-core-shaped API).
+- The generated `compat` document is written to `docs/api/` by the build and committed, so any contract change appears as a reviewable diff in the pull request that causes it.
+- A test compares the generated `compat` document against `docs/compat/ebms-core-*.json` for the endpoints we claim to implement — paths, methods, status codes, media types, field names — with an explicitly enumerated and justified list of allowed deviations. That list starts with the `DataSource` schema described in `docs/compat/README.md`, where ebms-core's *own* generated document does not match the JSON it actually puts on the wire.
+- Reference documentation is generated from the code, not hand-maintained alongside it.
+
 ---
 
-## 14. Ready for ebMS3/AS4 and AS2
+## 14. Ready for ebMS3/AS4
+
+**AS2 is out of scope** (decided 2026-09-08): AS4 supersedes it for the profiles we care about, so
+the second protocol to land here is ebMS3/AS4 and there is no third. That simplifies K2 — the
+agreement abstraction has to span CPA and PMode, and nothing else.
 
 The port structure is already right: `InboundMessageParser`, `OutboundMessageSerializer` and
 `MessageTransport` are the correct seams, and a second protocol slots in as another
@@ -749,7 +831,7 @@ agreement; adding a protocol requires no change to `ReceiveMessageService` or `S
 **Not a 0.1.0 blocker** — but do it before the first AS4 story, not after.
 
 ### K2. Name the agreement abstraction
-`Cpa` is ebMS-2 vocabulary; AS4 uses PMode, AS2 uses partner agreements.
+`Cpa` is ebMS-2 vocabulary; AS4 uses PModes.
 **AC:** the port is named for the concept (`AgreementRepository` or similar) with `Cpa` as the ebMS 2
 implementation. *(0.2.0.)*
 
@@ -768,10 +850,10 @@ C1 transaction boundary · C2 timeouts · C3 retry locking · C5 error responses
 
 **Milestone 3 — Smooth transition**
 D1–D7 compat API · F1 ConfigMap · F2 roles · E1 ping · E3 sync/async · I2 reference ConfigMap
-I3 migration note
+I3 migration note · C4 backoff and TTL · E8 `TimeToLive`
 
 **Milestone 4 — Prove it**
-H1–H3 tests · H4 performance baseline · H5 interop against ebms-core · C7 list queries
+J4 OpenAPI documents (do this before H3) · H1–H3 tests · H4 performance baseline · H5 interop against ebms-core · C7 list queries
 G1 probes · G2 metrics
 
 **Milestone 5 — Release**
@@ -837,6 +919,9 @@ Concrete defects verified in the current code, each mapped to the story that fix
 | `JmsMessageEventPublisher.java:29-31` | `fromRole`/`toRole` published as empty strings | F2, D6 |
 | `JmsMessageEventPublisher.java:40` | Publish failures swallowed with a warning — events can be lost silently | D6 |
 | `MessageEventPublisher.java` | `EXPIRED` is declared but never emitted | C4 |
+| `MessageStatus.java` | `DELIVERED` is declared but never set anywhere in the codebase | D3 |
+| `SoapMimeSerializer` / `SoapMimeParser` | `eb:TimeToLive` is neither emitted nor honoured | E8 |
+| `pom.xml` | No `springdoc-openapi`; no generated API contract to diff against ebms-core's | J4 |
 | `YamlCpaRepository.java:49` | Missing CPA directory logs a warning and continues with zero CPAs | F1 |
 | `SoapMimeParser.java` | No `eb:Manifest` validation on receive | E4 |
 | `pom.xml:23-25` | `java:S3776` suppressed project-wide across `**` | A3 |
