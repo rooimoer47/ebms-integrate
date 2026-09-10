@@ -9,7 +9,7 @@ COPY src ./src
 COPY .git ./.git
 RUN mvn package -DskipTests -q
 
-FROM eclipse-temurin:21-jre-noble@sha256:96975602e131485862eb8cd32927face8a06d7591a5e865944b634a701d9df72
+FROM eclipse-temurin:21-jre-noble@sha256:d35199d74a3b2dff1bfb435d9adde4ef974e74a7d2a4fcb3079063c55926edb5
 
 ARG VERSION=0.1.0-SNAPSHOT
 LABEL org.opencontainers.image.title="ebms-integrate" \
