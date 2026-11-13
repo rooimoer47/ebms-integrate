@@ -85,7 +85,7 @@ class CpasControllerTest {
         jdbc.update("DELETE FROM cpas");
         http.delete().uri(BASE + "/cache").retrieve().toBodilessEntity();
 
-        cpa = Files.readString(Path.of(getClass().getResource("/real-cpa.xml").toURI()))
+        cpa = Files.readString(Path.of(getClass().getResource("/real-cpas/valid_cpa.xml").toURI()))
                 .replaceAll("<ns1:End>[^<]*</ns1:End>", "<ns1:End>2099-01-01T00:00:00Z</ns1:End>");
         cpaId = "DGL-ONTVANGEN-1-0$1-0_22222222222222222222-00000004003214345001"
                 + "_D8B5DA3079F311E8B020005056810F3E";
@@ -155,7 +155,7 @@ class CpasControllerTest {
 
     @Test
     void insert_expiredCpa_isRejected() throws Exception {
-        String expired = Files.readString(Path.of(getClass().getResource("/real-cpa.xml").toURI()));
+        String expired = Files.readString(Path.of(getClass().getResource("/real-cpas/valid_cpa.xml").toURI()));
 
         ResponseEntity<String> response = insert(expired, true);
 

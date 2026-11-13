@@ -1,0 +1,359 @@
+<ns1:CollaborationProtocolAgreement ns1:cpaid="DGL-ONTVANGEN-1-0$1-0_22222222222222222222-00000004003214345001_D8B5DA3079F311E8B020005056810F3E" ns1:version="1.0" xmlns:ns2="http://www.w3.org/1999/xlink" xmlns:ns1="http://www.oasis-open.org/committees/ebxml-cppa/schema/cpp-cpa-2_0.xsd" xmlns:ns3="http://www.w3.org/2000/09/xmldsig#">
+    <ns1:Status ns1:value="agreed"/>
+    <ns1:Start>2018-06-27T00:00:00Z</ns1:Start>
+    <ns1:End>2025-06-27T00:00:00Z</ns1:End>
+    <ns1:PartyInfo ns1:partyName="Logius (CV)" ns1:defaultMshChannelId="AFNEMER_DC_T_Besteffort_S_Transport_R_" ns1:defaultMshPackageId="defaultPackage_Profile">
+        <ns1:PartyId ns1:type="urn:osb:oin">22222222222222222222</ns1:PartyId>
+        <ns1:PartyRef ns2:type="simple" ns2:href="http://www.logius.nl/"/>
+        <ns1:CollaborationRole>
+            <ns1:ProcessSpecification ns1:name="Digilevering_VerstAfn_MutatieObj_1.0_no_MO" ns1:version="1.0" ns1:uuid="urn:justid:ebv:Digilevering_VerstAfn_MutatieObj_10_no_MO:DglOntvangen10$10" ns2:type="simple" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:Role ns1:name="AFNEMER" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:ServiceBinding>
+                <ns1:Service ns1:type="urn:osb:services">dgl:ontvangen:1.0$1.0</ns1:Service>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S2_AFNEMER_DIGILEVERING_S_BT_90J0NEWDUN_BD_Nve01pR467_PV_1_0" ns1:action="appTestResponse" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S2_AFNEMER_DIGILEVERING_R_BT_90J0NEWDUN_BD_Nve01pR467_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S2_DIGILEVERING_AFNEMER_R_BT_LwPc5eSskk_BD_ZC6v0SffKX_PV_1_0" ns1:action="appTest" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S2_DIGILEVERING_AFNEMER_S_BT_LwPc5eSskk_BD_ZC6v0SffKX_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S2_DIGILEVERING_AFNEMER_R_BT_qDvJBGf8uG_BD_tzP9w172v3_PV_1_0" ns1:action="verstrekkingAanAfnemer" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S2_DIGILEVERING_AFNEMER_S_BT_qDvJBGf8uG_BD_tzP9w172v3_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+            </ns1:ServiceBinding>
+        </ns1:CollaborationRole>
+        <ns1:CollaborationRole>
+            <ns1:ProcessSpecification ns1:name="Digilevering_VerstAfn_MutatieObj_1.0_no_MO" ns1:version="1.0" ns1:uuid="urn:justid:ebv:Digilevering_VerstAfn_MutatieObj_10_no_MO:DglObjecten10$10" ns2:type="simple" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:Role ns1:name="AFNEMER" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:ServiceBinding>
+                <ns1:Service ns1:type="urn:osb:services">dgl:objecten:1.0$1.0</ns1:Service>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S1_AFNEMER_DIGILEVERING_S_BT_HgMeAcBXOb_BD_0CpTth9ulo_PV_1_0" ns1:action="appTest" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S1_AFNEMER_DIGILEVERING_R_BT_HgMeAcBXOb_BD_0CpTth9ulo_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S1_AFNEMER_DIGILEVERING_S_BT_zrE3iTJCQd_BD_tJQMAwW4ae_PV_1_0" ns1:action="mutatieObjecten" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S1_AFNEMER_DIGILEVERING_R_BT_zrE3iTJCQd_BD_tJQMAwW4ae_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="AFNEMER_S1_DIGILEVERING_AFNEMER_R_BT_q8OR981Rxw_BD_pe6SISp9aI_PV_1_0" ns1:action="appTestResponse" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>DIGILEVERING_S1_DIGILEVERING_AFNEMER_S_BT_q8OR981Rxw_BD_pe6SISp9aI_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+            </ns1:ServiceBinding>
+        </ns1:CollaborationRole>
+        <ns1:Certificate ns1:certId="AFNEMER_ServerCert">
+            <ns3:KeyInfo>
+                <ns3:KeyValue>
+                    <ns3:RSAKeyValue>
+                        <ns3:Modulus>qq9Focm8TPTM4a63PjiON5nktK6cpGacPnPH13tkoiSlv4fDFYZVlm4vcP5UDKNxwt83cAbiCPOdBp6vNo0KlpaTwEubkHbxucYKJPeOvbF+atHTm7hkGxj95QKT31RODDOp/wRtlaGS7r4hVKWfG6kq+81NoeBF4FotY8FawURBJk/AgqrOehR+GgPQAyz9KHFVQuJMswkkTr+2tFrMdEGd7robZYE0SV54jWJp5GcYwm07Azr2WArE6O3sbf0WoH1L32OvM+1X3OHWZtt+s3ayk3ScNt+REX99L1fze5GgxPshFoMMmA0cY5wTazp3rw1KMsiyznFMcgeki0/B9w==</ns3:Modulus>
+                        <ns3:Exponent>AQAB</ns3:Exponent>
+                    </ns3:RSAKeyValue>
+                </ns3:KeyValue>
+                <ns3:X509Data>
+                    <ns3:X509IssuerSerial>
+                        <ns3:X509IssuerName>CN=p-2004-031-004.engagement2004.ace.nl.capgemini.com, O=Capgemini, L=Utrecht, ST=Utrecht, C=NL</ns3:X509IssuerName>
+                        <ns3:X509SerialNumber>11068340597923567441</ns3:X509SerialNumber>
+                    </ns3:X509IssuerSerial>
+                    <ns3:X509SubjectName>CN=p-2004-031-004.engagement2004.ace.nl.capgemini.com,O=Capgemini,L=Utrecht,ST=Utrecht,C=NL</ns3:X509SubjectName>
+                    <ns3:X509Certificate>MIIECjCCAvKgAwIBAgIBHDANBgkqhkiG9w0BAQsFADCBrjELMAkGA1UEBhMCTkwx
+                        EDAOBgNVBAgMB1V0cmVjaHQxEDAOBgNVBAcMB1V0cmVjaHQxFjAUBgNVBAoMDUNh
+                        cGdlbWluaVRlc3QxEjAQBgNVBAsMCUNhcGdlbWluaTEXMBUGA1UEAwwOcC0yMDA0
+                        LTAzMS0wMTQxNjA0BgkqhkiG9w0BCQEWJ2xvZ2l1c3N0ZWxzZWxkaWVuc3Rlbi5i
+                        bmxAY2FwZ2VtaW5pLmNvbTAeFw0yMDA3MTcxMTUxMjVaFw0yMTA3MTcxMTUxMjVa
+                        MGgxCzAJBgNVBAYTAk5MMRAwDgYDVQQIDAdVdHJlY2h0MRAwDgYDVQQHDAdVdHJl
+                        Y2h0MRwwGgYDVQQKDBNDYXBnZW1pbmlUZXN0SW50ZXJuMRcwFQYDVQQDDA5QLTIw
+                        MDQtMDMxLTAwNDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALsOMFpW
+                        fPxGWsdBTSFcciUXZiruaNECbRsPuoZTBytsoaw8FUMLEBMef3Dq+oWRpITsXWMf
+                        UOM4tZKajoyq4RvqsS526FTisWeFceeuLozRPTDYKdcv0zUl8Gctr73HI1lnsYZK
+                        C70tgZ8r9aHZy0SCWPu8F35uqQF8A4I5J4yYBfAlzWoNJHSJzERK4GL6Tx0TcrGx
+                        7jbw6ar+HxkPjwhltN5XMBGfHq5VaINFmkM3V7gb1bQ/0pFRmumJjLH5Ok2ekebn
+                        eCD/yF40s8Fzy6Xy6GGZAATAXcoGIGWJ9IVxnAyVG7GZFOEmnoQ+YDBZGpXiHbd/
+                        GCyKJOBjus8a7zsCAwEAAaN4MHYwCQYDVR0TBAIwADALBgNVHQ8EBAMCBeAwXAYD
+                        VR0RBFUwU4IycC0yMDA0LTAzMS0wMDQuZW5nYWdlbWVudDIwMDQuYWNlLm5sLmNh
+                        cGdlbWluaS5jb22CDlAtMjAwNC0wMzEtMDA0gg0xNzIuMTYuNDQuMjUwMA0GCSqG
+                        SIb3DQEBCwUAA4IBAQDbwZBgwT0roO8ta+Un2//ZYujEk2FjsruOvuQscck/J2t2
+                        hVJjwdLMmnqoeEmTBc9swuWeI7wtT7lVQodXuK+TDZDi/JpfFlgafUeTGazP9AV6
+                        V6iMi9mrj2mt1lnlTDYPYdo5bj8GwM6G+Pqloow9U7qC0dP8hnUb9nCove9APMML
+                        +28akJ3pCnFXokTyZowM3eKFUhtFl2QGKRnZPQZrvmE8Hdg4lVyFixKUGyo5XsMe
+                        iHGVscDxFPHJo5Flf3qAwXSzmbnIfqKnEZj7Olpw0ybRTqlHstSwRjCg8PYxbCfY
+                        /vVuqceYfVmu6ydhGVzBCL/rBQDR4aKZuu3oH7Vm</ns3:X509Certificate>
+                </ns3:X509Data>
+            </ns3:KeyInfo>
+        </ns1:Certificate>
+        <ns1:Certificate ns1:certId="AFNEMER_ClientCert">
+            <ns3:KeyInfo>
+                <ns3:KeyValue>
+                    <ns3:RSAKeyValue>
+                        <ns3:Modulus>qq9Focm8TPTM4a63PjiON5nktK6cpGacPnPH13tkoiSlv4fDFYZVlm4vcP5UDKNxwt83cAbiCPOdBp6vNo0KlpaTwEubkHbxucYKJPeOvbF+atHTm7hkGxj95QKT31RODDOp/wRtlaGS7r4hVKWfG6kq+81NoeBF4FotY8FawURBJk/AgqrOehR+GgPQAyz9KHFVQuJMswkkTr+2tFrMdEGd7robZYE0SV54jWJp5GcYwm07Azr2WArE6O3sbf0WoH1L32OvM+1X3OHWZtt+s3ayk3ScNt+REX99L1fze5GgxPshFoMMmA0cY5wTazp3rw1KMsiyznFMcgeki0/B9w==</ns3:Modulus>
+                        <ns3:Exponent>AQAB</ns3:Exponent>
+                    </ns3:RSAKeyValue>
+                </ns3:KeyValue>
+                <ns3:X509Data>
+                    <ns3:X509IssuerSerial>
+                        <ns3:X509IssuerName>CN=p-2004-031-004.engagement2004.ace.nl.capgemini.com, O=Capgemini, L=Utrecht, ST=Utrecht, C=NL</ns3:X509IssuerName>
+                        <ns3:X509SerialNumber>11068340597923567441</ns3:X509SerialNumber>
+                    </ns3:X509IssuerSerial>
+                    <ns3:X509SubjectName>CN=p-2004-031-004.engagement2004.ace.nl.capgemini.com,O=Capgemini,L=Utrecht,ST=Utrecht,C=NL</ns3:X509SubjectName>
+                    <ns3:X509Certificate>MIIECjCCAvKgAwIBAgIBHDANBgkqhkiG9w0BAQsFADCBrjELMAkGA1UEBhMCTkwx
+                        EDAOBgNVBAgMB1V0cmVjaHQxEDAOBgNVBAcMB1V0cmVjaHQxFjAUBgNVBAoMDUNh
+                        cGdlbWluaVRlc3QxEjAQBgNVBAsMCUNhcGdlbWluaTEXMBUGA1UEAwwOcC0yMDA0
+                        LTAzMS0wMTQxNjA0BgkqhkiG9w0BCQEWJ2xvZ2l1c3N0ZWxzZWxkaWVuc3Rlbi5i
+                        bmxAY2FwZ2VtaW5pLmNvbTAeFw0yMDA3MTcxMTUxMjVaFw0yMTA3MTcxMTUxMjVa
+                        MGgxCzAJBgNVBAYTAk5MMRAwDgYDVQQIDAdVdHJlY2h0MRAwDgYDVQQHDAdVdHJl
+                        Y2h0MRwwGgYDVQQKDBNDYXBnZW1pbmlUZXN0SW50ZXJuMRcwFQYDVQQDDA5QLTIw
+                        MDQtMDMxLTAwNDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALsOMFpW
+                        fPxGWsdBTSFcciUXZiruaNECbRsPuoZTBytsoaw8FUMLEBMef3Dq+oWRpITsXWMf
+                        UOM4tZKajoyq4RvqsS526FTisWeFceeuLozRPTDYKdcv0zUl8Gctr73HI1lnsYZK
+                        C70tgZ8r9aHZy0SCWPu8F35uqQF8A4I5J4yYBfAlzWoNJHSJzERK4GL6Tx0TcrGx
+                        7jbw6ar+HxkPjwhltN5XMBGfHq5VaINFmkM3V7gb1bQ/0pFRmumJjLH5Ok2ekebn
+                        eCD/yF40s8Fzy6Xy6GGZAATAXcoGIGWJ9IVxnAyVG7GZFOEmnoQ+YDBZGpXiHbd/
+                        GCyKJOBjus8a7zsCAwEAAaN4MHYwCQYDVR0TBAIwADALBgNVHQ8EBAMCBeAwXAYD
+                        VR0RBFUwU4IycC0yMDA0LTAzMS0wMDQuZW5nYWdlbWVudDIwMDQuYWNlLm5sLmNh
+                        cGdlbWluaS5jb22CDlAtMjAwNC0wMzEtMDA0gg0xNzIuMTYuNDQuMjUwMA0GCSqG
+                        SIb3DQEBCwUAA4IBAQDbwZBgwT0roO8ta+Un2//ZYujEk2FjsruOvuQscck/J2t2
+                        hVJjwdLMmnqoeEmTBc9swuWeI7wtT7lVQodXuK+TDZDi/JpfFlgafUeTGazP9AV6
+                        V6iMi9mrj2mt1lnlTDYPYdo5bj8GwM6G+Pqloow9U7qC0dP8hnUb9nCove9APMML
+                        +28akJ3pCnFXokTyZowM3eKFUhtFl2QGKRnZPQZrvmE8Hdg4lVyFixKUGyo5XsMe
+                        iHGVscDxFPHJo5Flf3qAwXSzmbnIfqKnEZj7Olpw0ybRTqlHstSwRjCg8PYxbCfY
+                        /vVuqceYfVmu6ydhGVzBCL/rBQDR4aKZuu3oH7Vm</ns3:X509Certificate>
+                </ns3:X509Data>
+            </ns3:KeyInfo>
+        </ns1:Certificate>
+        <ns1:SecurityDetails ns1:securityId="AFNEMER_TransportSecurity">
+            <ns1:TrustAnchors>
+                <ns1:AnchorCertificateRef ns1:certId="AFNEMER_ServerCert"/>
+                <ns1:AnchorCertificateRef ns1:certId="AFNEMER_ClientCert"/>
+            </ns1:TrustAnchors>
+        </ns1:SecurityDetails>
+        <ns1:DeliveryChannel ns1:channelId="AFNEMER_DC_T_Besteffort_S_Transport_R_" ns1:transportId="AFNEMER_T_HTTPS" ns1:docExchangeId="AFNEMER_DE_S__R_">
+            <ns1:MessagingCharacteristics ns1:syncReplyMode="none" ns1:ackRequested="never" ns1:ackSignatureRequested="never" ns1:duplicateElimination="never" ns1:actor="urn:oasis:names:tc:ebxml-msg:actor:toPartyMSH"/>
+        </ns1:DeliveryChannel>
+        <ns1:DeliveryChannel ns1:channelId="AFNEMER_DC_T_Reliable_S_Transport_R_24PT3H" ns1:transportId="AFNEMER_T_HTTPS" ns1:docExchangeId="AFNEMER_DE_S__R_24PT3H">
+            <ns1:MessagingCharacteristics ns1:syncReplyMode="none" ns1:ackRequested="always" ns1:ackSignatureRequested="never" ns1:duplicateElimination="always" ns1:actor="urn:oasis:names:tc:ebxml-msg:actor:toPartyMSH"/>
+        </ns1:DeliveryChannel>
+        <ns1:Transport ns1:transportId="AFNEMER_T_HTTPS">
+            <ns1:TransportSender>
+                <ns1:TransportProtocol ns1:version="1.1">HTTP</ns1:TransportProtocol>
+                <ns1:TransportClientSecurity>
+                    <ns1:TransportSecurityProtocol ns1:version="1.2">TLS</ns1:TransportSecurityProtocol>
+                    <ns1:ClientCertificateRef ns1:certId="AFNEMER_ClientCert"/>
+                    <ns1:ServerSecurityDetailsRef ns1:securityId="AFNEMER_TransportSecurity"/>
+                </ns1:TransportClientSecurity>
+            </ns1:TransportSender>
+            <ns1:TransportReceiver>
+                <ns1:TransportProtocol ns1:version="1.1">HTTP</ns1:TransportProtocol>
+                <ns1:Endpoint ns1:uri="http://localhost:9111/dbk-stub" ns1:type="allPurpose"/>
+                <ns1:TransportServerSecurity>
+                    <ns1:TransportSecurityProtocol ns1:version="1.2">TLS</ns1:TransportSecurityProtocol>
+                    <ns1:ServerCertificateRef ns1:certId="AFNEMER_ServerCert"/>
+                    <ns1:ClientSecurityDetailsRef ns1:securityId="AFNEMER_TransportSecurity"/>
+                </ns1:TransportServerSecurity>
+            </ns1:TransportReceiver>
+        </ns1:Transport>
+        <ns1:DocExchange ns1:docExchangeId="AFNEMER_DE_S__R_">
+            <ns1:ebXMLSenderBinding ns1:version="2.0"/>
+            <ns1:ebXMLReceiverBinding ns1:version="2.0"/>
+        </ns1:DocExchange>
+        <ns1:DocExchange ns1:docExchangeId="AFNEMER_DE_S__R_24PT3H">
+            <ns1:ebXMLSenderBinding ns1:version="2.0">
+                <ns1:ReliableMessaging>
+                    <ns1:Retries>24</ns1:Retries>
+                    <ns1:RetryInterval>PT3H</ns1:RetryInterval>
+                    <ns1:MessageOrderSemantics>NotGuaranteed</ns1:MessageOrderSemantics>
+                </ns1:ReliableMessaging>
+                <ns1:PersistDuration>P4D</ns1:PersistDuration>
+            </ns1:ebXMLSenderBinding>
+            <ns1:ebXMLReceiverBinding ns1:version="2.0">
+                <ns1:ReliableMessaging>
+                    <ns1:Retries>24</ns1:Retries>
+                    <ns1:RetryInterval>PT3H</ns1:RetryInterval>
+                    <ns1:MessageOrderSemantics>NotGuaranteed</ns1:MessageOrderSemantics>
+                </ns1:ReliableMessaging>
+                <ns1:PersistDuration>P4D</ns1:PersistDuration>
+            </ns1:ebXMLReceiverBinding>
+        </ns1:DocExchange>
+    </ns1:PartyInfo>
+    <ns1:PartyInfo ns1:partyName="Logius (GBO)" ns1:defaultMshChannelId="DIGILEVERING_DC_T_Besteffort_S_Transport_R_" ns1:defaultMshPackageId="defaultPackage_Profile">
+        <ns1:PartyId ns1:type="urn:osb:oin">00000004003214345001</ns1:PartyId>
+        <ns1:PartyRef ns2:type="simple" ns2:href="http://www.logius.nl/"/>
+        <ns1:CollaborationRole>
+            <ns1:ProcessSpecification ns1:name="Digilevering_VerstAfn_MutatieObj_1.0_no_MO" ns1:version="1.0" ns1:uuid="urn:justid:ebv:Digilevering_VerstAfn_MutatieObj_10_no_MO:DglOntvangen10$10" ns2:type="simple" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:Role ns1:name="DIGILEVERING" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:ServiceBinding>
+                <ns1:Service ns1:type="urn:osb:services">dgl:ontvangen:1.0$1.0</ns1:Service>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S2_DIGILEVERING_AFNEMER_S_BT_LwPc5eSskk_BD_ZC6v0SffKX_PV_1_0" ns1:action="appTest" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S2_DIGILEVERING_AFNEMER_R_BT_LwPc5eSskk_BD_ZC6v0SffKX_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S2_DIGILEVERING_AFNEMER_S_BT_qDvJBGf8uG_BD_tzP9w172v3_PV_1_0" ns1:action="verstrekkingAanAfnemer" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S2_DIGILEVERING_AFNEMER_R_BT_qDvJBGf8uG_BD_tzP9w172v3_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S2_AFNEMER_DIGILEVERING_R_BT_90J0NEWDUN_BD_Nve01pR467_PV_1_0" ns1:action="appTestResponse" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S2_AFNEMER_DIGILEVERING_S_BT_90J0NEWDUN_BD_Nve01pR467_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+            </ns1:ServiceBinding>
+        </ns1:CollaborationRole>
+        <ns1:CollaborationRole>
+            <ns1:ProcessSpecification ns1:name="Digilevering_VerstAfn_MutatieObj_1.0_no_MO" ns1:version="1.0" ns1:uuid="urn:justid:ebv:Digilevering_VerstAfn_MutatieObj_10_no_MO:DglObjecten10$10" ns2:type="simple" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:Role ns1:name="DIGILEVERING" ns2:href="http://www.justid.nl/ebv/Digilevering_VerstAfn_MutatieObj_10_no_MO"/>
+            <ns1:ServiceBinding>
+                <ns1:Service ns1:type="urn:osb:services">dgl:objecten:1.0$1.0</ns1:Service>
+                <ns1:CanSend>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S1_DIGILEVERING_AFNEMER_S_BT_q8OR981Rxw_BD_pe6SISp9aI_PV_1_0" ns1:action="appTestResponse" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S1_DIGILEVERING_AFNEMER_R_BT_q8OR981Rxw_BD_pe6SISp9aI_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanSend>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S1_AFNEMER_DIGILEVERING_R_BT_HgMeAcBXOb_BD_0CpTth9ulo_PV_1_0" ns1:action="appTest" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S1_AFNEMER_DIGILEVERING_S_BT_HgMeAcBXOb_BD_0CpTth9ulo_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+                <ns1:CanReceive>
+                    <ns1:ThisPartyActionBinding ns1:id="DIGILEVERING_S1_AFNEMER_DIGILEVERING_R_BT_zrE3iTJCQd_BD_tJQMAwW4ae_PV_1_0" ns1:action="mutatieObjecten" ns1:packageId="defaultPackage_Profile">
+                        <ns1:BusinessTransactionCharacteristics ns1:isNonRepudiationRequired="false" ns1:isNonRepudiationReceiptRequired="false" ns1:isConfidential="transient" ns1:isAuthenticated="transient" ns1:isTamperProof="transient" ns1:isAuthorizationRequired="true" ns1:isIntelligibleCheckRequired="false" ns1:timeToPerform="PT75H"/>
+                        <ns1:ChannelId>DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H</ns1:ChannelId>
+                    </ns1:ThisPartyActionBinding>
+                    <ns1:OtherPartyActionBinding>AFNEMER_S1_AFNEMER_DIGILEVERING_S_BT_zrE3iTJCQd_BD_tJQMAwW4ae_PV_1_0</ns1:OtherPartyActionBinding>
+                </ns1:CanReceive>
+            </ns1:ServiceBinding>
+        </ns1:CollaborationRole>
+        <ns1:Certificate ns1:certId="DIGILEVERING_ServerCert">
+            <ns3:KeyInfo>
+                <ns3:KeyValue>
+                    <ns3:RSAKeyValue>
+                        <ns3:Modulus>m7btYwb3iR3Eav9aU1wNkTDQsASWvJd2T4ZIOwEJqXxgVCrxpVfYgIceQN/ULIFVPh/vMrbHf8DU9apgip0d9aFndDVRFTyQl0QV6pDKNxzcYiWwE6hKhGeFt3x78FpCSatOd4lnVz6uZrCd6rI1WecV689SB9kZ/MMtTJyVnzxH8e1NZkXA9WsMVbMOgwiGTDapsY1U0SKn/6gFpBcsPOw3VJVPMpcn6oWTvgj8TwjuEm0nwOa0dVNDgQUW4Xl9LKiZYjiSq9Xtf/ZtcYbhsq/tN2UX2ZHbzrcahc09nEUYMBZV246GCXU1mYA6UpEvMUNK/9+bwAUEakBYdD2GzQ==</ns3:Modulus>
+                        <ns3:Exponent>AQAB</ns3:Exponent>
+                    </ns3:RSAKeyValue>
+                </ns3:KeyValue>
+                <ns3:X509Data>
+                    <ns3:X509IssuerSerial>
+                        <ns3:X509IssuerName>CN=p-2004-031-008.engagement2004.ace.nl.capgemini.com, O=Capgemini, L=Utrecht, ST=Utrecht, C=NL</ns3:X509IssuerName>
+                        <ns3:X509SerialNumber>17839155812119286437</ns3:X509SerialNumber>
+                    </ns3:X509IssuerSerial>
+                    <ns3:X509SubjectName>CN=p-2004-031-008.engagement2004.ace.nl.capgemini.com,O=Capgemini,L=Utrecht,ST=Utrecht,C=NL</ns3:X509SubjectName>
+                    <ns3:X509Certificate>MIID2TCCAsGgAwIBAgIJAPeRabH6NxKlMA0GCSqGSIb3DQEBCwUAMIGCMQswCQYDVQQGEwJOTDEQMA4GA1UECAwHVXRyZWNodDEQMA4GA1UEBwwHVXRyZWNodDESMBAGA1UECgwJQ2FwZ2VtaW5pMTswOQYDVQQDDDJwLTIwMDQtMDMxLTAwOC5lbmdhZ2VtZW50MjAwNC5hY2UubmwuY2FwZ2VtaW5pLmNvbTAeFw0xODA2MjcwOTAzMDVaFw0xOTA2MjcwOTAzMDVaMIGCMQswCQYDVQQGEwJOTDEQMA4GA1UECAwHVXRyZWNodDEQMA4GA1UEBwwHVXRyZWNodDESMBAGA1UECgwJQ2FwZ2VtaW5pMTswOQYDVQQDDDJwLTIwMDQtMDMxLTAwOC5lbmdhZ2VtZW50MjAwNC5hY2UubmwuY2FwZ2VtaW5pLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJu27WMG94kdxGr/WlNcDZEw0LAElryXdk+GSDsBCal8YFQq8aVX2ICHHkDf1CyBVT4f7zK2x3/A1PWqYIqdHfWhZ3Q1URU8kJdEFeqQyjcc3GIlsBOoSoRnhbd8e/BaQkmrTneJZ1c+rmawneqyNVnnFevPUgfZGfzDLUyclZ88R/HtTWZFwPVrDFWzDoMIhkw2qbGNVNEip/+oBaQXLDzsN1SVTzKXJ+qFk74I/E8I7hJtJ8DmtHVTQ4EFFuF5fSyomWI4kqvV7X/2bXGG4bKv7TdlF9mR2863GoXNPZxFGDAWVduOhgl1NZmAOlKRLzFDSv/fm8AFBGpAWHQ9hs0CAwEAAaNQME4wHQYDVR0OBBYEFKh5TeRJh3txfu7VkN7g7vvhWP4pMB8GA1UdIwQYMBaAFKh5TeRJh3txfu7VkN7g7vvhWP4pMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACQyeBlSd2/ejuTOB4wUnWYH1ufrFgk936J0SwhFAYkq2UvjxceZihB3MZR5Ly57aUnkvtnIKJkAhUyXcKRX0jIed+XetWo8fShED3c8fnr6JlpTp8x35Bs6RVyoSISZpAa3C0P3CQ4c8MjlLjKpnb13OsAsoiIlcCMD8rrqtGSc6kZ1c+C69ury6eBJkVbK0v178OF8M638C6q674mXEkAhLFeH1bA/y6madS9qKVki/wL72VkO5Co3yno18lP1QyvVJrbPjRG5arT5uZIqiwj1+W9LHv/ZcQof+wgn5ZFxU4ouh6UAnJOJijxnQxfZGdkiNem1NWbF3/i9Lk7jODY=</ns3:X509Certificate>
+                </ns3:X509Data>
+            </ns3:KeyInfo>
+        </ns1:Certificate>
+        <ns1:Certificate ns1:certId="DIGILEVERING_ClientCert">
+            <ns3:KeyInfo>
+                <ns3:KeyValue>
+                    <ns3:RSAKeyValue>
+                        <ns3:Modulus>m7btYwb3iR3Eav9aU1wNkTDQsASWvJd2T4ZIOwEJqXxgVCrxpVfYgIceQN/ULIFVPh/vMrbHf8DU9apgip0d9aFndDVRFTyQl0QV6pDKNxzcYiWwE6hKhGeFt3x78FpCSatOd4lnVz6uZrCd6rI1WecV689SB9kZ/MMtTJyVnzxH8e1NZkXA9WsMVbMOgwiGTDapsY1U0SKn/6gFpBcsPOw3VJVPMpcn6oWTvgj8TwjuEm0nwOa0dVNDgQUW4Xl9LKiZYjiSq9Xtf/ZtcYbhsq/tN2UX2ZHbzrcahc09nEUYMBZV246GCXU1mYA6UpEvMUNK/9+bwAUEakBYdD2GzQ==</ns3:Modulus>
+                        <ns3:Exponent>AQAB</ns3:Exponent>
+                    </ns3:RSAKeyValue>
+                </ns3:KeyValue>
+                <ns3:X509Data>
+                    <ns3:X509IssuerSerial>
+                        <ns3:X509IssuerName>CN=p-2004-031-008.engagement2004.ace.nl.capgemini.com, O=Capgemini, L=Utrecht, ST=Utrecht, C=NL</ns3:X509IssuerName>
+                        <ns3:X509SerialNumber>17839155812119286437</ns3:X509SerialNumber>
+                    </ns3:X509IssuerSerial>
+                    <ns3:X509SubjectName>CN=p-2004-031-008.engagement2004.ace.nl.capgemini.com,O=Capgemini,L=Utrecht,ST=Utrecht,C=NL</ns3:X509SubjectName>
+                    <ns3:X509Certificate>MIID2TCCAsGgAwIBAgIJAPeRabH6NxKlMA0GCSqGSIb3DQEBCwUAMIGCMQswCQYDVQQGEwJOTDEQMA4GA1UECAwHVXRyZWNodDEQMA4GA1UEBwwHVXRyZWNodDESMBAGA1UECgwJQ2FwZ2VtaW5pMTswOQYDVQQDDDJwLTIwMDQtMDMxLTAwOC5lbmdhZ2VtZW50MjAwNC5hY2UubmwuY2FwZ2VtaW5pLmNvbTAeFw0xODA2MjcwOTAzMDVaFw0xOTA2MjcwOTAzMDVaMIGCMQswCQYDVQQGEwJOTDEQMA4GA1UECAwHVXRyZWNodDEQMA4GA1UEBwwHVXRyZWNodDESMBAGA1UECgwJQ2FwZ2VtaW5pMTswOQYDVQQDDDJwLTIwMDQtMDMxLTAwOC5lbmdhZ2VtZW50MjAwNC5hY2UubmwuY2FwZ2VtaW5pLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJu27WMG94kdxGr/WlNcDZEw0LAElryXdk+GSDsBCal8YFQq8aVX2ICHHkDf1CyBVT4f7zK2x3/A1PWqYIqdHfWhZ3Q1URU8kJdEFeqQyjcc3GIlsBOoSoRnhbd8e/BaQkmrTneJZ1c+rmawneqyNVnnFevPUgfZGfzDLUyclZ88R/HtTWZFwPVrDFWzDoMIhkw2qbGNVNEip/+oBaQXLDzsN1SVTzKXJ+qFk74I/E8I7hJtJ8DmtHVTQ4EFFuF5fSyomWI4kqvV7X/2bXGG4bKv7TdlF9mR2863GoXNPZxFGDAWVduOhgl1NZmAOlKRLzFDSv/fm8AFBGpAWHQ9hs0CAwEAAaNQME4wHQYDVR0OBBYEFKh5TeRJh3txfu7VkN7g7vvhWP4pMB8GA1UdIwQYMBaAFKh5TeRJh3txfu7VkN7g7vvhWP4pMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACQyeBlSd2/ejuTOB4wUnWYH1ufrFgk936J0SwhFAYkq2UvjxceZihB3MZR5Ly57aUnkvtnIKJkAhUyXcKRX0jIed+XetWo8fShED3c8fnr6JlpTp8x35Bs6RVyoSISZpAa3C0P3CQ4c8MjlLjKpnb13OsAsoiIlcCMD8rrqtGSc6kZ1c+C69ury6eBJkVbK0v178OF8M638C6q674mXEkAhLFeH1bA/y6madS9qKVki/wL72VkO5Co3yno18lP1QyvVJrbPjRG5arT5uZIqiwj1+W9LHv/ZcQof+wgn5ZFxU4ouh6UAnJOJijxnQxfZGdkiNem1NWbF3/i9Lk7jODY=</ns3:X509Certificate>
+                </ns3:X509Data>
+            </ns3:KeyInfo>
+        </ns1:Certificate>
+        <ns1:SecurityDetails ns1:securityId="DIGILEVERING_TransportSecurity">
+            <ns1:TrustAnchors>
+                <ns1:AnchorCertificateRef ns1:certId="DIGILEVERING_ServerCert"/>
+                <ns1:AnchorCertificateRef ns1:certId="DIGILEVERING_ClientCert"/>
+            </ns1:TrustAnchors>
+        </ns1:SecurityDetails>
+        <ns1:DeliveryChannel ns1:channelId="DIGILEVERING_DC_T_Besteffort_S_Transport_R_" ns1:transportId="DIGILEVERING_T_HTTPS" ns1:docExchangeId="DIGILEVERING_DE_S__R_">
+            <ns1:MessagingCharacteristics ns1:syncReplyMode="none" ns1:ackRequested="never" ns1:ackSignatureRequested="never" ns1:duplicateElimination="never" ns1:actor="urn:oasis:names:tc:ebxml-msg:actor:toPartyMSH"/>
+        </ns1:DeliveryChannel>
+        <ns1:DeliveryChannel ns1:channelId="DIGILEVERING_DC_T_Reliable_S_Transport_R_24PT3H" ns1:transportId="DIGILEVERING_T_HTTPS" ns1:docExchangeId="DIGILEVERING_DE_S__R_24PT3H">
+            <ns1:MessagingCharacteristics ns1:syncReplyMode="none" ns1:ackRequested="always" ns1:ackSignatureRequested="never" ns1:duplicateElimination="always" ns1:actor="urn:oasis:names:tc:ebxml-msg:actor:toPartyMSH"/>
+        </ns1:DeliveryChannel>
+        <ns1:Transport ns1:transportId="DIGILEVERING_T_HTTPS">
+            <ns1:TransportSender>
+                <ns1:TransportProtocol ns1:version="1.1">HTTP</ns1:TransportProtocol>
+                <ns1:TransportClientSecurity>
+                    <ns1:TransportSecurityProtocol ns1:version="1.2">TLS</ns1:TransportSecurityProtocol>
+                    <ns1:ClientCertificateRef ns1:certId="DIGILEVERING_ClientCert"/>
+                    <ns1:ServerSecurityDetailsRef ns1:securityId="DIGILEVERING_TransportSecurity"/>
+                </ns1:TransportClientSecurity>
+            </ns1:TransportSender>
+            <ns1:TransportReceiver>
+                <ns1:TransportProtocol ns1:version="1.1">HTTP</ns1:TransportProtocol>
+                <ns1:Endpoint ns1:uri="https://p-2004-031-008.engagement2004.ace.nl.capgemini.com/ebms-broker/ebms" ns1:type="allPurpose"/>
+                <ns1:TransportServerSecurity>
+                    <ns1:TransportSecurityProtocol ns1:version="1.2">TLS</ns1:TransportSecurityProtocol>
+                    <ns1:ServerCertificateRef ns1:certId="DIGILEVERING_ServerCert"/>
+                    <ns1:ClientSecurityDetailsRef ns1:securityId="DIGILEVERING_TransportSecurity"/>
+                </ns1:TransportServerSecurity>
+            </ns1:TransportReceiver>
+        </ns1:Transport>
+        <ns1:DocExchange ns1:docExchangeId="DIGILEVERING_DE_S__R_">
+            <ns1:ebXMLSenderBinding ns1:version="2.0"/>
+            <ns1:ebXMLReceiverBinding ns1:version="2.0"/>
+        </ns1:DocExchange>
+        <ns1:DocExchange ns1:docExchangeId="DIGILEVERING_DE_S__R_24PT3H">
+            <ns1:ebXMLSenderBinding ns1:version="2.0">
+                <ns1:ReliableMessaging>
+                    <ns1:Retries>24</ns1:Retries>
+                    <ns1:RetryInterval>PT3H</ns1:RetryInterval>
+                    <ns1:MessageOrderSemantics>NotGuaranteed</ns1:MessageOrderSemantics>
+                </ns1:ReliableMessaging>
+                <ns1:PersistDuration>P4D</ns1:PersistDuration>
+            </ns1:ebXMLSenderBinding>
+            <ns1:ebXMLReceiverBinding ns1:version="2.0">
+                <ns1:ReliableMessaging>
+                    <ns1:Retries>24</ns1:Retries>
+                    <ns1:RetryInterval>PT3H</ns1:RetryInterval>
+                    <ns1:MessageOrderSemantics>NotGuaranteed</ns1:MessageOrderSemantics>
+                </ns1:ReliableMessaging>
+                <ns1:PersistDuration>P4D</ns1:PersistDuration>
+            </ns1:ebXMLReceiverBinding>
+        </ns1:DocExchange>
+    </ns1:PartyInfo>
+    <ns1:SimplePart ns1:id="DefaultSimplePart" ns1:mimetype="application/xml"/>
+    <ns1:Packaging ns1:id="defaultPackage_Profile">
+        <ns1:ProcessingCapabilities ns1:parse="true" ns1:generate="true"/>
+        <ns1:CompositeList>
+            <ns1:Composite ns1:id="DefaultComposite" ns1:mimetype="type=text/xml">
+                <ns1:Constituent ns1:idref="DefaultSimplePart"/>
+            </ns1:Composite>
+        </ns1:CompositeList>
+    </ns1:Packaging>
+    <ns1:Comment xml:lang="en-UK">This CPA is created by means of the CPA Creation Toolkit 4.0.</ns1:Comment>
+    <ns1:Comment xml:lang="en-UK">The toolkit is provided by the Justitiele Informatiedienst, department EBV, The Netherlands (http://www.justid.nl).</ns1:Comment>
+    <ns1:Comment xml:lang="en-UK">The sourcecode of the toolkit is licensed under the European Union Public Licence - EUPL v.1.1.</ns1:Comment>
+    <ns1:Comment xml:lang="en-UK">Creation date/time: 2018-06-27T12:21:27.683+02:00</ns1:Comment>
+    <ns1:Comment xml:lang="en-UK">Created using template: CreateCPATemplate_v405</ns1:Comment>
+</ns1:CollaborationProtocolAgreement>

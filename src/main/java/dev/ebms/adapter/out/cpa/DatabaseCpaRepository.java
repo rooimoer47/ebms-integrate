@@ -3,6 +3,8 @@ package dev.ebms.adapter.out.cpa;
 import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.exception.InvalidCpaException;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -42,9 +44,21 @@ public class DatabaseCpaRepository implements CpaRepository {
 
     private volatile Map<String, Cpa> projection = new ConcurrentHashMap<>();
 
-    public DatabaseCpaRepository(CpaJpaRepository cpas, CpaDocumentParser parser) {
+    public DatabaseCpaRepository(CpaJpaRepository cpas, CpaDocumentParser parser,
+                                 MeterRegistry meters) {
         this.cpas = cpas;
         this.parser = parser;
+        // An empty store is the cutover failure mode: nothing migrates ebms-core's CPAs across,
+        // so until cpa-service syncs, every submit answers 400 CpaNotFound and every inbound
+        // message is unroutable. Make that a number an operator can see rather than something
+        // inferred from failing messages.
+        Gauge.builder("ebms.cpas.resolvable", projectionSize())
+                .description("CPAs the message paths can resolve")
+                .register(meters);
+    }
+
+    private java.util.function.Supplier<Number> projectionSize() {
+        return () -> projection.size();
     }
 
     /**
@@ -134,6 +148,10 @@ public class DatabaseCpaRepository implements CpaRepository {
         projection = rebuilt;
         log.info("CPA projection reloaded: {} -> {} CPA(s){}", before, rebuilt.size(),
                 skipped > 0 ? " (" + skipped + " unprojectable, skipped)" : "");
+        if (rebuilt.isEmpty()) {
+            log.warn("No CPAs are resolvable. Nothing can be sent or received until the store is "
+                    + "populated -- at cutover that is cpa-service's PUT /cpa/sync.");
+        }
     }
 
     /** On the write path the reason is the answer, so it is carried out to the caller. */

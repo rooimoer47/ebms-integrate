@@ -32,8 +32,8 @@ class CpaValidatorTest {
 
     @BeforeAll
     static void load() throws Exception {
-        realCpa = read("/real-cpa.xml");
-        intermediaryCpa = read("/real-cpa-intermediary.xml");
+        realCpa = read("/real-cpas/valid_cpa.xml");
+        intermediaryCpa = read("/real-cpas/valid_intermediaryCPA.xml");
         handWritten = read("/test-cpa.xml");
     }
 
