@@ -61,7 +61,7 @@ public class SendMessageService implements SendMessageUseCase {
 
     @Override
     @Transactional
-    public UUID send(SendRequest request) {
+    public SendMessageUseCase.SendResult send(SendRequest request) {
         Cpa cpa = cpaRepository.findByCpaId(request.cpaId())
                 .orElseThrow(() -> new CpaNotFoundException(request.cpaId()));
 
@@ -81,7 +81,7 @@ public class SendMessageService implements SendMessageUseCase {
 
         attemptSend(saved, cpa);
 
-        return saved.id();
+        return new SendResult(saved.id(), saved.messageId());
     }
 
     /**

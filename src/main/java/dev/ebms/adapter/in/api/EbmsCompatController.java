@@ -39,7 +39,7 @@ public class EbmsCompatController {
 
         UUID id = sendMessageUseCase.send(new SendMessageUseCase.SendRequest(
                 request.cpaId(), request.conversationId(), request.service(),
-                request.action(), payloads));
+                request.action(), payloads)).id();
 
         return messageRepository.findById(id)
                 .map(msg -> ResponseEntity.ok(toStatusResponse(msg)))

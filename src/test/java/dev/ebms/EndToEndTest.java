@@ -313,6 +313,167 @@ class EndToEndTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    // ---------- P1-6: the v19 submit endpoint jms-consumer and cpa-service call ----------
+
+    @Test
+    void v19Submit_acceptsExactlyWhatJmsConsumerSends() {
+        // This body is the shape jms-consumer's MessageFactory produces: it names both
+        // parties and roles, supplies its own message id, and sends a DataSource with only
+        // content and contentType -- no name, no contentId.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        ResponseEntity<String> response = v19Submit(jmsConsumerStyleRequest(messageId));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getContentType())
+                .isNotNull()
+                .satisfies(ct -> assertThat(ct.getType() + "/" + ct.getSubtype()).isEqualTo("text/plain"));
+        assertThat(response.getBody()).isEqualTo(messageId);
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing(messageId)));
+    }
+
+    @Test
+    void v19Submit_respondsWithTheBareIdNotJson() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+
+        String body = v19Submit(jmsConsumerStyleRequest(messageId)).getBody();
+
+        // The clients read this into a String, so a JSON envelope would become the id.
+        assertThat(body).doesNotStartWith("{").doesNotStartWith("\"").isEqualTo(messageId);
+    }
+
+    @Test
+    void v19Submit_withoutAMessageId_generatesOneAndReturnsIt() {
+        Map<String, Object> request = jmsConsumerStyleRequest(null);
+
+        String body = v19Submit(request).getBody();
+
+        assertThat(body).isNotBlank().endsWith("@msh.ebms.dev");
+    }
+
+    @Test
+    void v19Submit_callerSuppliedPartiesReachTheWire() {
+        // The intermediary case: the CPA names partner-a, the caller addresses someone else.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        Map<String, Object> request = new java.util.HashMap<>(jmsConsumerStyleRequest(messageId));
+        request.put("properties", Map.of(
+                "cpaId", "cpa-test",
+                "messageId", messageId,
+                "conversationId", "conv-intermediary",
+                "service", "OrderService",
+                "action", "NewOrder",
+                "fromPartyId", "our-company",
+                "fromRole", "Bronhouder",
+                "toPartyId", "urn:osb:oin:00000003342283970000",
+                "toRole", "Intermediair"));
+
+        assertThat(v19Submit(request).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("urn:osb:oin:00000003342283970000"))
+                .withRequestBody(containing("<eb:Role>Intermediair</eb:Role>")));
+    }
+
+    @Test
+    void v19Submit_dataSourceWithoutContentId_getsOneSoTheManifestIsValid() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+
+        v19Submit(jmsConsumerStyleRequest(messageId));
+
+        // A null content id would be serialised into the manifest as "cid:null".
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("cid:payload-1")));
+    }
+
+    @Test
+    void v19Submit_duplicateMessageId_answersWithTextJmsConsumerRecognises() {
+        // jms-consumer treats a resubmission as a benign JMS redelivery only when it can find
+        // both of these in the error text. Spring's default error body would carry neither.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        assertThat(v19Submit(jmsConsumerStyleRequest(messageId)).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> second = v19Submit(jmsConsumerStyleRequest(messageId));
+
+        assertThat(second.getStatusCode().is4xxClientError()).isTrue();
+        assertThat(second.getBody())
+                .contains("duplicate key value violates unique constraint")
+                .contains("uc_ebms_message");
+    }
+
+    @Test
+    void v19Submit_unknownCpa_is400NamingTheCpa() {
+        Map<String, Object> request = Map.of(
+                "properties", Map.of(
+                        "cpaId", "cpa-does-not-exist",
+                        "service", "OrderService",
+                        "action", "NewOrder",
+                        "fromPartyId", "our-company",
+                        "fromRole", "Bronhouder"),
+                "dataSources", List.of());
+
+        ResponseEntity<String> response = v19Submit(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("cpa-does-not-exist");
+    }
+
+    @Test
+    void v19Submit_overlongMessageId_is400NotA500() {
+        Map<String, Object> request = new java.util.HashMap<>(
+                jmsConsumerStyleRequest("x".repeat(256)));
+
+        ResponseEntity<String> response = v19Submit(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("255");
+    }
+
+    @Test
+    void v19Submit_thenFetch_roundTripsThroughTheContract() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, false);
+
+        assertThat(props)
+                .containsEntry("messageId", messageId)
+                .containsEntry("conversationId", "conv-v19-submit");
+        assertThat(asMap(props.get("toParty"))).containsEntry("role", "Afnemer");
+    }
+
+    private ResponseEntity<String> v19Submit(Map<String, Object> request) {
+        return http.post()
+                .uri("/service/rest/v19/ebms/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    /** The body jms-consumer's MessageFactory builds: no DataSource name or contentId. */
+    private static Map<String, Object> jmsConsumerStyleRequest(String messageId) {
+        Map<String, Object> properties = new java.util.HashMap<>(Map.of(
+                "cpaId", "cpa-test",
+                "conversationId", "conv-v19-submit",
+                "service", "OrderService",
+                "action", "NewOrder",
+                "fromPartyId", "our-company",
+                "fromRole", "Bronhouder",
+                "toPartyId", "partner-a",
+                "toRole", "Afnemer"));
+        if (messageId != null) {
+            properties.put("messageId", messageId);
+        }
+        return Map.of(
+                "properties", properties,
+                "dataSources", List.of(Map.of(
+                        "contentType", "text/xml; charset=UTF-8",
+                        "content", Base64.getEncoder().encodeToString(
+                                "<order><line>1</line></order>".getBytes(StandardCharsets.UTF_8)))));
+    }
+
     /** Mirrors how jms-producer builds the call: encoded path segment plus a process flag. */
     private <T> ResponseEntity<T> v19Get(String messageId, boolean process, Class<T> type) {
         return http.get()

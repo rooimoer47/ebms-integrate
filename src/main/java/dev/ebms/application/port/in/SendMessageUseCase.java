@@ -7,7 +7,14 @@ import java.util.UUID;
 
 public interface SendMessageUseCase {
 
-    UUID send(SendRequest request);
+    SendResult send(SendRequest request);
+
+    /**
+     * @param id        our internal row id
+     * @param messageId the ebMS message id, which the caller may have supplied or we may have
+     *                  generated -- either way it is what the v19 contract answers with
+     */
+    record SendResult(UUID id, String messageId) {}
 
     /**
      * A request to send a message. Everything after {@code payloads} is optional and comes
