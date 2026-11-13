@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Same shape as test-cpa.xml, but each CollaborationRole declares a Role, which is where
+     ebMS party roles come from. Party ids are OIN-prefixed as they are in Digilevering CPAs. -->
+<cpa:CollaborationProtocolAgreement
+    xmlns:cpa="http://www.oasis-open.org/committees/ebxml-cppa/schema/cpp-cpa-2_0.xsd"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    cpa:cpaid="cpa-with-roles">
+
+  <cpa:Status cpa:value="agreed"/>
+
+  <cpa:PartyInfo>
+    <cpa:PartyId cpa:type="urn:osb:oin">urn:osb:oin:00000001822477348001</cpa:PartyId>
+    <cpa:PartyName>Landelijke Voorziening</cpa:PartyName>
+    <cpa:Transport cpa:transportId="transport-lv">
+      <cpa:TransportReceiver>
+        <cpa:Endpoint cpa:type="allPurpose"
+                      xlink:href="https://lv.example.nl/ebms/msh"
+                      xlink:type="simple"/>
+        <cpa:TransportProtocol cpa:version="1.1">HTTP</cpa:TransportProtocol>
+      </cpa:TransportReceiver>
+    </cpa:Transport>
+    <cpa:CollaborationRole cpa:id="role-lv">
+      <cpa:Role cpa:name="Bronhouder" xlink:href="http://example.nl/roles/bronhouder"/>
+      <cpa:ServiceBinding cpa:channelId="transport-lv" cpa:packageId="packaging-1">
+        <cpa:Service>urn:osb:services:verstrekking</cpa:Service>
+        <cpa:CanSend>
+          <cpa:ThisPartyActionBinding cpa:action="verstrekkingDoorLV" cpa:id="bind-1" cpa:packageId="packaging-1">
+            <cpa:ReliableMessaging>
+              <cpa:Retries>3</cpa:Retries>
+              <cpa:RetryInterval>PT60S</cpa:RetryInterval>
+              <cpa:DuplicateElimination/>
+            </cpa:ReliableMessaging>
+          </cpa:ThisPartyActionBinding>
+        </cpa:CanSend>
+      </cpa:ServiceBinding>
+    </cpa:CollaborationRole>
+  </cpa:PartyInfo>
+
+  <cpa:PartyInfo>
+    <cpa:PartyId cpa:type="urn:osb:oin">urn:osb:oin:00000001810220350000</cpa:PartyId>
+    <cpa:PartyName>Afnemer</cpa:PartyName>
+    <cpa:Transport cpa:transportId="transport-afnemer">
+      <cpa:TransportReceiver>
+        <cpa:Endpoint cpa:type="allPurpose"
+                      xlink:href="https://afnemer.example.nl/ebms/msh"
+                      xlink:type="simple"/>
+        <cpa:TransportProtocol cpa:version="1.1">HTTP</cpa:TransportProtocol>
+      </cpa:TransportReceiver>
+    </cpa:Transport>
+    <cpa:CollaborationRole cpa:id="role-afnemer">
+      <cpa:Role cpa:name="Afnemer" xlink:href="http://example.nl/roles/afnemer"/>
+      <cpa:ServiceBinding cpa:channelId="transport-afnemer" cpa:packageId="packaging-1">
+        <cpa:Service>urn:osb:services:verstrekking</cpa:Service>
+      </cpa:ServiceBinding>
+    </cpa:CollaborationRole>
+  </cpa:PartyInfo>
+
+</cpa:CollaborationProtocolAgreement>

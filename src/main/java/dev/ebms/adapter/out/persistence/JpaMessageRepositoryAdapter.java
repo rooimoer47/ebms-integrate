@@ -93,8 +93,10 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
         e.setCpaId(m.cpaId());
         e.setFromPartyId(m.from().partyId());
         e.setFromPartyType(m.from().partyIdType());
+        e.setFromRole(m.from().role());
         e.setToPartyId(m.to().partyId());
         e.setToPartyType(m.to().partyIdType());
+        e.setToRole(m.to().role());
         e.setService(m.service());
         e.setAction(m.action());
         e.setDirection(m.direction());
@@ -114,8 +116,8 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
                 .toList();
         return new EbmsMessage(
                 e.getId(), e.getMessageId(), e.getConversationId(), e.getCpaId(),
-                new Party(e.getFromPartyId(), e.getFromPartyType()),
-                new Party(e.getToPartyId(), e.getToPartyType()),
+                new Party(e.getFromPartyId(), e.getFromPartyType(), e.getFromRole()),
+                new Party(e.getToPartyId(), e.getToPartyType(), e.getToRole()),
                 e.getService(), e.getAction(), e.getTimestamp(), payloads,
                 e.getDirection(), e.getStatus(), e.getRetryCount(), e.getNextRetryAt(),
                 e.isAckRequested(), e.getRefToMessageId(), e.isProcessed()

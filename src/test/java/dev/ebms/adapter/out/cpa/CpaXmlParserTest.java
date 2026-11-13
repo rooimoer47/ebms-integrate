@@ -11,10 +11,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CpaXmlParserTest {
 
     private static final Path TEST_CPA;
+    private static final Path TEST_CPA_WITH_ROLES;
 
     static {
         try {
             TEST_CPA = Path.of(CpaXmlParserTest.class.getResource("/test-cpa.xml").toURI());
+            TEST_CPA_WITH_ROLES =
+                    Path.of(CpaXmlParserTest.class.getResource("/test-cpa-with-roles.xml").toURI());
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -84,5 +87,30 @@ class CpaXmlParserTest {
     void parse_extractsRetryInterval() throws Exception {
         Cpa cpa = parser.parse(TEST_CPA, "our-company");
         assertThat(cpa.retryInterval()).isEqualTo(Duration.ofSeconds(60));
+    }
+
+    @Test
+    void parse_collaborationRoleDeclaresRole_extractsRoleForBothParties() throws Exception {
+        Cpa cpa = parser.parse(TEST_CPA_WITH_ROLES, "urn:osb:oin:00000001822477348001");
+
+        assertThat(cpa.fromParty().role()).isEqualTo("Bronhouder");
+        assertThat(cpa.toParty().role()).isEqualTo("Afnemer");
+    }
+
+    @Test
+    void parse_roleFollowsTheSelectedParty_notDocumentOrder() throws Exception {
+        Cpa cpa = parser.parse(TEST_CPA_WITH_ROLES, "urn:osb:oin:00000001810220350000");
+
+        assertThat(cpa.fromParty().role()).isEqualTo("Afnemer");
+        assertThat(cpa.toParty().role()).isEqualTo("Bronhouder");
+    }
+
+    @Test
+    void parse_noRoleElement_leavesRoleNull() throws Exception {
+        // test-cpa.xml has a CollaborationRole but no Role inside it.
+        Cpa cpa = parser.parse(TEST_CPA, "our-company");
+
+        assertThat(cpa.fromParty().role()).isNull();
+        assertThat(cpa.toParty().role()).isNull();
     }
 }

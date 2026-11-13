@@ -98,8 +98,10 @@ public class YamlCpaRepository implements CpaRepository {
                 X509Certificate cert = loadCertFromPath(config.recipientCertPath, file);
                 cpa = new Cpa(
                         config.cpaId,
-                        new Party(config.fromParty.partyId, config.fromParty.partyIdType),
-                        new Party(config.toParty.partyId, config.toParty.partyIdType),
+                        new Party(config.fromParty.partyId, config.fromParty.partyIdType,
+                                config.fromParty.role),
+                        new Party(config.toParty.partyId, config.toParty.partyIdType,
+                                config.toParty.role),
                         config.transportUrl,
                         config.ackRequested,
                         config.duplicateElimination,

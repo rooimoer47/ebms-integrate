@@ -21,5 +21,7 @@ public class CpaFileConfig {
     static class PartyConfig {
         String partyId;
         String partyIdType;
+        /** Optional ebMS role, mirroring CollaborationRole/Role/@name in an XML CPA. */
+        String role;
     }
 }

@@ -138,7 +138,26 @@ class CpaXmlParser {
         if (partyIdType.isBlank()) {
             partyIdType = partyIdEl.getAttribute("type");
         }
-        return new Party(partyId, partyIdType.isBlank() ? null : partyIdType);
+        String role = extractRole(partyInfo, xpath);
+        return new Party(partyId, partyIdType.isBlank() ? null : partyIdType, role);
+    }
+
+    /**
+     * The party's ebMS role, from CollaborationRole/Role/@name. Optional: a CPA that does not
+     * declare roles yields a null role, and no eb:Role is then written to the header.
+     */
+    private String extractRole(Node partyInfo, XPath xpath) throws XPathExpressionException {
+        Node roleNode = (Node) xpath.evaluate(
+                "cpa:CollaborationRole/cpa:Role", partyInfo, XPathConstants.NODE);
+        if (roleNode == null) {
+            return null;
+        }
+        Element roleEl = (Element) roleNode;
+        String name = roleEl.getAttributeNS(CPA_NS, "name");
+        if (name.isBlank()) {
+            name = roleEl.getAttribute("name");
+        }
+        return name.isBlank() ? null : name;
     }
 
     private X509Certificate extractCertificate(Node partyInfo, XPath xpath, Path file) {
