@@ -596,6 +596,20 @@ class EndToEndTest {
         return http.get().uri("/api/messages").retrieve().body(List.class).size();
     }
 
+    // ---------- P1-9: the old shim is retired ----------
+
+    @Test
+    void legacyShimPaths_areGone() {
+        // /ebms-core matched neither the vendored contract nor any client. Leaving it mounted
+        // would read as a supported surface.
+        assertThat(http.get().uri("/ebms-core/unprocessedMessages").retrieve()
+                .toEntity(String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.get().uri("/ebms-core/messageStatus/anything").retrieve()
+                .toEntity(String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
     private ResponseEntity<String> v19Resend(String messageId) {
         return http.put()
                 .uri(builder -> builder

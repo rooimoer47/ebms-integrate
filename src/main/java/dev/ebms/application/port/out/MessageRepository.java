@@ -19,10 +19,14 @@ public interface MessageRepository {
 
     List<EbmsMessage> findByDirectionAndStatus(Direction direction, MessageStatus status);
 
-    /** Messages that are PENDING_SEND and ready for their next attempt. */
-    List<EbmsMessage> findPendingRetries(Instant now);
-
-    List<EbmsMessage> findUnprocessedInbound();
+    /**
+     * Ids of the messages that are PENDING_SEND and ready for their next attempt.
+     *
+     * <p>Ids rather than messages, deliberately. The retry loop sends one at a time, so loading
+     * the whole batch would hold every pending payload -- up to {@code maxMessageSize} each --
+     * in the heap at once. The caller fetches each message, with its payloads, as it reaches it.
+     */
+    List<UUID> findPendingRetryIds(Instant now);
 
     EbmsMessage update(EbmsMessage message);
 
