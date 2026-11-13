@@ -41,7 +41,7 @@ public class AdminController {
 
         UUID id = sendMessageUseCase.send(new SendMessageUseCase.SendRequest(
                 request.cpaId(), request.conversationId(), request.service(),
-                request.action(), payloads));
+                request.action(), payloads)).id();
 
         return queryMessagesUseCase.findById(id)
                 .map(msg -> ResponseEntity.ok(toResponse(msg)))

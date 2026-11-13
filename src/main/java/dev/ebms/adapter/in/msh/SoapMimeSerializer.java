@@ -46,6 +46,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
     private static final String ATTR_MUST_UNDERSTAND = "SOAP-ENV:mustUnderstand";
     private static final String ATTR_EB_VERSION = "eb:version";
     private static final String EB_PARTY_ID = "eb:PartyId";
+    private static final String EB_ROLE = "eb:Role";
     private static final String EB_FROM = "eb:From";
     private static final String EB_TIMESTAMP = "eb:Timestamp";
     private static final String EB_REF_TO_MESSAGE_ID = "eb:RefToMessageId";
@@ -133,6 +134,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         }
         fromPartyId.setTextContent(message.from().partyId());
         from.appendChild(fromPartyId);
+        appendRole(doc, from, message.from().role());
         header.appendChild(from);
 
         Element to = doc.createElementNS(EB_NS, "eb:To");
@@ -142,6 +144,7 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         }
         toPartyId.setTextContent(message.to().partyId());
         to.appendChild(toPartyId);
+        appendRole(doc, to, message.to().role());
         header.appendChild(to);
 
         appendText(doc, header, EB_NS, "eb:CPAId", message.cpaId());
@@ -172,8 +175,19 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         Element fromPartyId = doc.createElementNS(EB_NS, EB_PARTY_ID);
         fromPartyId.setTextContent(message.from().partyId());
         from.appendChild(fromPartyId);
+        appendRole(doc, from, message.from().role());
         ack.appendChild(from);
         return ack;
+    }
+
+    /**
+     * ebMS 2.0 puts eb:Role after the eb:PartyId elements of an eb:From / eb:To. A party
+     * with no role gets no element at all -- an empty eb:Role is not the same thing.
+     */
+    private void appendRole(Document doc, Element partyElement, String role) {
+        if (role != null && !role.isBlank()) {
+            appendText(doc, partyElement, EB_NS, EB_ROLE, role);
+        }
     }
 
     private Element buildManifest(Document doc, EbmsMessage message) {
@@ -258,12 +272,14 @@ public class SoapMimeSerializer implements OutboundMessageSerializer {
         Element fromPartyEl = doc.createElementNS(EB_NS, EB_PARTY_ID);
         fromPartyEl.setTextContent(fromPartyId);
         from.appendChild(fromPartyEl);
+        appendRole(doc, from, context != null ? context.to().role() : null);
         msgHeader.appendChild(from);
 
         Element to = doc.createElementNS(EB_NS, "eb:To");
         Element toPartyEl = doc.createElementNS(EB_NS, EB_PARTY_ID);
         toPartyEl.setTextContent(toPartyId);
         to.appendChild(toPartyEl);
+        appendRole(doc, to, context != null ? context.from().role() : null);
         msgHeader.appendChild(to);
 
         appendText(doc, msgHeader, EB_NS, "eb:CPAId", context != null ? context.cpaId() : UNKNOWN_PARTY);

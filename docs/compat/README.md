@@ -20,6 +20,29 @@ They are not our API. Do not edit them — refresh them from upstream instead.
 | `ebms-core-ebms-api.json` | `core/resources/api/rest/ebms.json` |
 | `ebms-core-cpas-api.json` | `core/resources/api/rest/cpas.json` |
 
+### `client-ebms-api-v18.yml`
+
+The copy our **clients** are generated from, which is the one that actually constrains us.
+
+| | |
+|---|---|
+| Source | `https://git.lpc.logius.nl/logius/open/pgu/osdbk/lpc/jms-producer.git` |
+| Path | `src/main/resources/openapi/ebms.yml` |
+| Last changed upstream | `c95ce87b7c71c8911371e14c790de622cab3faa3` (2022-07-06) |
+| Retrieved at | `79cf4010001d55b7056c2ba92fa50e890eac0cc9` |
+
+`V19ContractTest` asserts our DTOs against this file, so a rename or a dropped field fails the
+build here rather than a client in production.
+
+Prefer this document over the ebms-core ones where they disagree, and they do:
+
+- **`MessageStatus`** is a bare string enum here, an object of `{timestamp, status}` in
+  ebms-core 2.20.x. The generated client models expect the string.
+- **ping** is a `GET` here and a `POST` in ebms-core 2.20.x. cpa-service sends `POST`.
+- This document's `MessageProperties.required` lists `fromPartyId` and `fromRole`, which are
+  not among its own properties -- they belong to `MessageRequestProperties`. An upstream slip;
+  do not try to satisfy it.
+
 Upstream also ships `urlMappings.json` and `certificateMappings.json`. Those endpoints are
 deliberately out of scope for us (story D8), so they are not vendored.
 

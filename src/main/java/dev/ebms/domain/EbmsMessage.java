@@ -52,9 +52,17 @@ public record EbmsMessage(
     public static EbmsMessage newOutbound(String messageId, String conversationId, String cpaId,
                                           Party from, Party to, String service, String action,
                                           List<Payload> payloads, boolean ackRequested) {
+        return newOutbound(messageId, conversationId, cpaId, from, to, service, action,
+                payloads, ackRequested, null);
+    }
+
+    public static EbmsMessage newOutbound(String messageId, String conversationId, String cpaId,
+                                          Party from, Party to, String service, String action,
+                                          List<Payload> payloads, boolean ackRequested,
+                                          String refToMessageId) {
         return new EbmsMessage(UUID.randomUUID(), messageId, conversationId, cpaId, from, to,
                 service, action, Instant.now(), payloads, Direction.OUTBOUND, MessageStatus.PENDING_SEND,
-                0, null, ackRequested, null, false);
+                0, null, ackRequested, refToMessageId, false);
     }
 
     public static EbmsMessage newAck(String messageId, String conversationId, String cpaId,

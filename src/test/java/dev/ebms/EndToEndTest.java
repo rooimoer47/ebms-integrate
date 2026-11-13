@@ -15,10 +15,12 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Base64;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -199,6 +201,503 @@ class EndToEndTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> updated = http.get().uri("/api/messages/" + sentId).retrieve().body(Map.class);
         assertThat(updated).containsEntry("status", "ACKED");
+    }
+
+    // ---------- P1-4: the v19 fetch endpoint jms-producer calls ----------
+
+    @Test
+    void v19GetMessage_returnsTheShapeTheGeneratedClientModelExpects() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, true);
+
+        assertThat(props)
+                .containsEntry("cpaId", "cpa-test")
+                .containsEntry("messageId", messageId)
+                .containsEntry("conversationId", "conv-e2e-001")
+                .containsEntry("service", "OrderService")
+                .containsEntry("action", "NewOrder");
+        assertThat(asMap(props.get("fromParty"))).containsEntry("partyId", "partner-a");
+        assertThat(asMap(props.get("toParty"))).containsEntry("partyId", "our-company");
+
+        // Every property jms-producer's MessageFactory reads has to be present.
+        assertThat(props).containsKeys("cpaId", "conversationId", "messageId", "service",
+                "action", "fromParty", "toParty", "messageStatus", "timestamp");
+    }
+
+    @Test
+    void v19GetMessage_writesStatusAsAStringAndTimestampAsIso() {
+        // ebms-core 2.20.x models MessageStatus as an object; the clients are generated from
+        // the v18 copy where it is a bare enum, and theirs is the one that deserialises.
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, true);
+
+        assertThat(props.get("messageStatus")).isInstanceOf(String.class);
+        assertThat((String) props.get("timestamp")).matches("\\d{4}-\\d{2}-\\d{2}T.*");
+    }
+
+    @Test
+    void v19GetMessage_writesPayloadContentAsBase64() {
+        // Submitted rather than received, because it is the only route here that carries a
+        // payload -- the inbound fixture has an empty SOAP body. jms-producer reads
+        // dataSources.get(0).getContent(), so the base64 round trip is load-bearing.
+        String content = "<order><line>1</line></order>";
+        String messageId = submitWithPayload(content);
+
+        List<Map<String, Object>> dataSources = v19DataSources(messageId);
+
+        assertThat(dataSources).hasSize(1);
+        assertThat(dataSources.get(0))
+                .containsEntry("contentId", "order-1")
+                .containsEntry("name", "order-1")
+                .containsEntry("contentType", "text/xml; charset=UTF-8");
+        assertThat(new String(Base64.getDecoder()
+                .decode((String) dataSources.get(0).get("content")), StandardCharsets.UTF_8))
+                .isEqualTo(content);
+    }
+
+    @Test
+    void v19GetMessage_outboundAwaitingAck_isReportedAsCreatedNotDelivered() {
+        // The CPA requests an acknowledgement and the stub partner answers with something that
+        // is not one, so the message sits at SENT -- reported as CREATED, because the ack is
+        // the proof of delivery.
+        String messageId = submitWithPayload("<order/>");
+
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "CREATED");
+    }
+
+    @Test
+    void v19GetMessage_processTrue_reportsProcessed() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Properties(messageId, true)).containsEntry("messageStatus", "PROCESSED");
+
+        // A second fetch still returns it -- a redelivered RECEIVED event must not 404.
+        assertThat(v19Get(messageId, true, Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void v19GetMessage_processFalse_leavesTheMessageUnprocessed() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "RECEIVED");
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "RECEIVED");
+    }
+
+    @Test
+    void v19GetMessage_urlEncodedMessageId_resolvesToTheSameMessage() {
+        // jms-producer URL-encodes the id, so the '@' of the Message-ID arrives as %40.
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Get(messageId, false, Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(v19Properties(messageId, false)).containsEntry("messageId", messageId);
+    }
+
+    @Test
+    void v19GetMessage_messageWithNoPayloads_stillReportsAnEmptyDataSourcesArray() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19DataSources(messageId)).isEmpty();
+    }
+
+    @Test
+    void v19GetMessage_unknownId_is404() {
+        assertThat(v19Get("no-such-message@nowhere.example.com", false, Map.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ---------- P1-6: the v19 submit endpoint jms-consumer and cpa-service call ----------
+
+    @Test
+    void v19Submit_acceptsExactlyWhatJmsConsumerSends() {
+        // This body is the shape jms-consumer's MessageFactory produces: it names both
+        // parties and roles, supplies its own message id, and sends a DataSource with only
+        // content and contentType -- no name, no contentId.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        ResponseEntity<String> response = v19Submit(jmsConsumerStyleRequest(messageId));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getContentType())
+                .isNotNull()
+                .satisfies(ct -> assertThat(ct.getType() + "/" + ct.getSubtype()).isEqualTo("text/plain"));
+        assertThat(response.getBody()).isEqualTo(messageId);
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing(messageId)));
+    }
+
+    @Test
+    void v19Submit_respondsWithTheBareIdNotJson() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+
+        String body = v19Submit(jmsConsumerStyleRequest(messageId)).getBody();
+
+        // The clients read this into a String, so a JSON envelope would become the id.
+        assertThat(body).doesNotStartWith("{").doesNotStartWith("\"").isEqualTo(messageId);
+    }
+
+    @Test
+    void v19Submit_withoutAMessageId_generatesOneAndReturnsIt() {
+        Map<String, Object> request = jmsConsumerStyleRequest(null);
+
+        String body = v19Submit(request).getBody();
+
+        assertThat(body).isNotBlank().endsWith("@msh.ebms.dev");
+    }
+
+    @Test
+    void v19Submit_callerSuppliedPartiesReachTheWire() {
+        // The intermediary case: the CPA names partner-a, the caller addresses someone else.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        Map<String, Object> request = new java.util.HashMap<>(jmsConsumerStyleRequest(messageId));
+        request.put("properties", Map.of(
+                "cpaId", "cpa-test",
+                "messageId", messageId,
+                "conversationId", "conv-intermediary",
+                "service", "OrderService",
+                "action", "NewOrder",
+                "fromPartyId", "our-company",
+                "fromRole", "Bronhouder",
+                "toPartyId", "urn:osb:oin:00000003342283970000",
+                "toRole", "Intermediair"));
+
+        assertThat(v19Submit(request).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("urn:osb:oin:00000003342283970000"))
+                .withRequestBody(containing("<eb:Role>Intermediair</eb:Role>")));
+    }
+
+    @Test
+    void v19Submit_dataSourceWithoutContentId_getsOneSoTheManifestIsValid() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+
+        v19Submit(jmsConsumerStyleRequest(messageId));
+
+        // A null content id would be serialised into the manifest as "cid:null".
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("cid:payload-1")));
+    }
+
+    @Test
+    void v19Submit_duplicateMessageId_answersWithTextJmsConsumerRecognises() {
+        // jms-consumer treats a resubmission as a benign JMS redelivery only when it can find
+        // both of these in the error text. Spring's default error body would carry neither.
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        assertThat(v19Submit(jmsConsumerStyleRequest(messageId)).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> second = v19Submit(jmsConsumerStyleRequest(messageId));
+
+        assertThat(second.getStatusCode().is4xxClientError()).isTrue();
+        assertThat(second.getBody())
+                .contains("duplicate key value violates unique constraint")
+                .contains("uc_ebms_message");
+    }
+
+    @Test
+    void v19Submit_unknownCpa_is400NamingTheCpa() {
+        Map<String, Object> request = Map.of(
+                "properties", Map.of(
+                        "cpaId", "cpa-does-not-exist",
+                        "service", "OrderService",
+                        "action", "NewOrder",
+                        "fromPartyId", "our-company",
+                        "fromRole", "Bronhouder"),
+                "dataSources", List.of());
+
+        ResponseEntity<String> response = v19Submit(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("cpa-does-not-exist");
+    }
+
+    @Test
+    void v19Submit_overlongMessageId_is400NotA500() {
+        Map<String, Object> request = new java.util.HashMap<>(
+                jmsConsumerStyleRequest("x".repeat(256)));
+
+        ResponseEntity<String> response = v19Submit(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("255");
+    }
+
+    @Test
+    void v19Submit_thenFetch_roundTripsThroughTheContract() {
+        String messageId = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, false);
+
+        assertThat(props)
+                .containsEntry("messageId", messageId)
+                .containsEntry("conversationId", "conv-v19-submit");
+        assertThat(asMap(props.get("toParty"))).containsEntry("role", "Afnemer");
+    }
+
+    // ---------- P1-7: resend, which jms-consumer's Resender drives ----------
+
+    @Test
+    void v19Resend_returnsANewIdAndLeavesTheOriginalAlone() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        ResponseEntity<String> response = v19Resend(original);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String resentId = response.getBody();
+        assertThat(resentId).isNotBlank().isNotEqualTo(original).endsWith("@msh.ebms.dev");
+
+        // Both messages exist afterwards.
+        assertThat(v19Properties(original, false)).containsEntry("messageId", original);
+        assertThat(v19Properties(resentId, false)).containsEntry("messageId", resentId);
+    }
+
+    @Test
+    void v19Resend_copiesPayloadsPartiesAndRoles() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        String resentId = v19Resend(original).getBody();
+
+        Map<String, Object> props = v19Properties(resentId, false);
+        assertThat(props)
+                .containsEntry("cpaId", "cpa-test")
+                .containsEntry("conversationId", "conv-v19-submit")
+                .containsEntry("service", "OrderService")
+                .containsEntry("action", "NewOrder");
+        assertThat(asMap(props.get("fromParty"))).containsEntry("role", "Bronhouder");
+        assertThat(asMap(props.get("toParty"))).containsEntry("role", "Afnemer");
+        assertThat(v19DataSources(resentId)).hasSize(1);
+    }
+
+    @Test
+    void v19Resend_reachesThePartnerAgain() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        String resentId = v19Resend(original).getBody();
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing(resentId)));
+    }
+
+    @Test
+    void v19Resend_unknownId_is404SoTheResenderDropsIt() {
+        // Resender treats a 404 as "the message is gone, take it off the queue".
+        assertThat(v19Resend("no-such-message@nowhere.example.com").getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ---------- P1-8: the ebMS ping cpa-service exposes to the console ----------
+
+    @Test
+    void v19Ping_partnerAnswersWithPong_is200() {
+        stubPong();
+
+        ResponseEntity<String> response = v19Ping("cpa-test",
+                "urn:osb:oin:00000001822477348001", "urn:osb:oin:00000001810220350000");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .withRequestBody(containing("urn:oasis:names:tc:ebxml-msg:service")));
+    }
+
+    @Test
+    void v19Ping_sendsNoPayloadAndRequestsNoAck() {
+        stubPong();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000001810220350000");
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .withRequestBody(notContaining("eb:AckRequested"))
+                .withRequestBody(notContaining("eb:Manifest")));
+    }
+
+    @Test
+    void v19Ping_partyIdsFromThePathReachTheHeader() {
+        stubPong();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000003342283970000");
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("urn:osb:oin:00000003342283970000")));
+    }
+
+    @Test
+    void v19Ping_noPongBack_is502BecauseThePartnerIsAtFault() {
+        partnerMsh.stubFor(post(urlEqualTo("/ebms/msh"))
+                .atPriority(1)
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "text/xml; charset=UTF-8")
+                        .withBody("<nothing-useful/>")));
+
+        ResponseEntity<String> response = v19Ping("cpa-test",
+                "urn:osb:oin:00000001822477348001", "urn:osb:oin:00000001810220350000");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody()).contains("cpa-test");
+    }
+
+    @Test
+    void v19Ping_unknownCpa_is404() {
+        assertThat(v19Ping("cpa-does-not-exist", "urn:osb:oin:1", "urn:osb:oin:2")
+                .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void v19Ping_isNotRecordedAsAMessage() {
+        // A connectivity check is not business traffic and must stay out of the history the
+        // admin console shows.
+        stubPong();
+        int before = inboundAndOutboundCount();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000001810220350000");
+
+        assertThat(inboundAndOutboundCount()).isEqualTo(before);
+    }
+
+    private void stubPong() {
+        partnerMsh.stubFor(post(urlEqualTo("/ebms/msh"))
+                .atPriority(1)
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "text/xml; charset=UTF-8")
+                        .withBody("""
+                                <?xml version="1.0" encoding="UTF-8"?>
+                                <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+                                                   xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd">
+                                  <SOAP-ENV:Header>
+                                    <eb:MessageHeader SOAP-ENV:mustUnderstand="1" eb:version="2.0">
+                                      <eb:Service>urn:oasis:names:tc:ebxml-msg:service</eb:Service>
+                                      <eb:Action>Pong</eb:Action>
+                                    </eb:MessageHeader>
+                                  </SOAP-ENV:Header>
+                                  <SOAP-ENV:Body/>
+                                </SOAP-ENV:Envelope>
+                                """)));
+    }
+
+    private int inboundAndOutboundCount() {
+        return http.get().uri("/api/messages").retrieve().body(List.class).size();
+    }
+
+    // ---------- P1-9: the old shim is retired ----------
+
+    @Test
+    void legacyShimPaths_areGone() {
+        // /ebms-core matched neither the vendored contract nor any client. Leaving it mounted
+        // would read as a supported surface.
+        assertThat(http.get().uri("/ebms-core/unprocessedMessages").retrieve()
+                .toEntity(String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.get().uri("/ebms-core/messageStatus/anything").retrieve()
+                .toEntity(String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    private ResponseEntity<String> v19Resend(String messageId) {
+        return http.put()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/messages/{messageId}")
+                        .build(messageId))
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    private ResponseEntity<String> v19Ping(String cpaId, String fromPartyId, String toPartyId) {
+        return http.post()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/ping/{cpaId}/from/{from}/to/{to}")
+                        .build(cpaId, fromPartyId, toPartyId))
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    private ResponseEntity<String> v19Submit(Map<String, Object> request) {
+        return http.post()
+                .uri("/service/rest/v19/ebms/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    /** The body jms-consumer's MessageFactory builds: no DataSource name or contentId. */
+    private static Map<String, Object> jmsConsumerStyleRequest(String messageId) {
+        Map<String, Object> properties = new java.util.HashMap<>(Map.of(
+                "cpaId", "cpa-test",
+                "conversationId", "conv-v19-submit",
+                "service", "OrderService",
+                "action", "NewOrder",
+                "fromPartyId", "our-company",
+                "fromRole", "Bronhouder",
+                "toPartyId", "partner-a",
+                "toRole", "Afnemer"));
+        if (messageId != null) {
+            properties.put("messageId", messageId);
+        }
+        return Map.of(
+                "properties", properties,
+                "dataSources", List.of(Map.of(
+                        "contentType", "text/xml; charset=UTF-8",
+                        "content", Base64.getEncoder().encodeToString(
+                                "<order><line>1</line></order>".getBytes(StandardCharsets.UTF_8)))));
+    }
+
+    /** Mirrors how jms-producer builds the call: encoded path segment plus a process flag. */
+    private <T> ResponseEntity<T> v19Get(String messageId, boolean process, Class<T> type) {
+        return http.get()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/messages/{messageId}")
+                        .queryParam("process", process)
+                        .build(messageId))
+                .retrieve()
+                .toEntity(type);
+    }
+
+    private Map<String, Object> v19Properties(String messageId, boolean process) {
+        return asMap(asMap(v19Get(messageId, process, Map.class).getBody()).get("properties"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> v19DataSources(String messageId) {
+        return (List<Map<String, Object>>) asMap(
+                v19Get(messageId, false, Map.class).getBody()).get("dataSources");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object value) {
+        return (Map<String, Object>) value;
+    }
+
+    private String submitWithPayload(String content) {
+        Map<String, Object> request = Map.of(
+                "cpaId", "cpa-test",
+                "conversationId", UUID.randomUUID().toString(),
+                "service", "OrderService",
+                "action", "NewOrder",
+                "payloads", List.of(Map.of(
+                        "contentId", "order-1",
+                        "mimeType", "text/xml; charset=UTF-8",
+                        "content", Base64.getEncoder()
+                                .encodeToString(content.getBytes(StandardCharsets.UTF_8))))
+        );
+        return (String) asMap(postJson(request).getBody()).get("messageId");
     }
 
     private ResponseEntity<String> postSoap(String envelope) {

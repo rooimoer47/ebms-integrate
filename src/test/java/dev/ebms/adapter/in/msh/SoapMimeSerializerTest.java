@@ -186,6 +186,105 @@ class SoapMimeSerializerTest {
                 .getLength()).isEqualTo(1);
     }
 
+    @Test
+    void serialize_partiesWithRoles_writesRoleAfterPartyId() throws Exception {
+        EbmsMessage message = EbmsMessage.newOutbound(
+                "msg-roles@test", "conv-001", "cpa-001",
+                new Party("urn:osb:oin:00000001822477348001", "urn:osb:oin", "Bronhouder"),
+                new Party("urn:osb:oin:00000001810220350000", "urn:osb:oin", "Afnemer"),
+                "urn:osb:services:verstrekking", "verstrekkingDoorLV", List.of(), false);
+
+        SerializedMessage result = serializer.serialize(message, null);
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        XPath xpath = buildXpath();
+
+        assertThat(xpath.evaluate(
+                "/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/eb:Role", doc))
+                .isEqualTo("Bronhouder");
+        assertThat(xpath.evaluate(
+                "/soap:Envelope/soap:Header/eb:MessageHeader/eb:To/eb:Role", doc))
+                .isEqualTo("Afnemer");
+
+        // ebMS 2.0 requires Role to follow the PartyId elements within From / To.
+        assertThat(xpath.evaluate(
+                "local-name(/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/*[1])", doc))
+                .isEqualTo("PartyId");
+        assertThat(xpath.evaluate(
+                "local-name(/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/*[2])", doc))
+                .isEqualTo("Role");
+    }
+
+    @Test
+    void serialize_partiesWithoutRoles_omitsRoleElementEntirely() throws Exception {
+        EbmsMessage message = EbmsMessage.newOutbound(
+                "msg-noroles@test", "conv-001", "cpa-001",
+                Party.of("our-company"), Party.of("partner-a"),
+                "OrderService", "NewOrder", List.of(), false);
+
+        SerializedMessage result = serializer.serialize(message, null);
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        assertThat(doc.getElementsByTagNameNS(SoapMimeParser.EB_NS, "Role").getLength())
+                .isZero();
+    }
+
+    @Test
+    void serialize_blankRole_omitsRoleElement() throws Exception {
+        EbmsMessage message = EbmsMessage.newOutbound(
+                "msg-blankrole@test", "conv-001", "cpa-001",
+                new Party("our-company", null, "   "),
+                new Party("partner-a", null, ""),
+                "OrderService", "NewOrder", List.of(), false);
+
+        SerializedMessage result = serializer.serialize(message, null);
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        assertThat(doc.getElementsByTagNameNS(SoapMimeParser.EB_NS, "Role").getLength())
+                .isZero();
+    }
+
+    @Test
+    void serializeThenParse_rolesSurviveTheRoundTrip() throws Exception {
+        EbmsMessage sent = EbmsMessage.newOutbound(
+                "msg-roundtrip@test", "conv-001", "cpa-001",
+                new Party("urn:osb:oin:00000001822477348001", "urn:osb:oin", "Bronhouder"),
+                new Party("urn:osb:oin:00000001810220350000", "urn:osb:oin", "Afnemer"),
+                "urn:osb:services:verstrekking", "verstrekkingDoorLV", List.of(), false);
+
+        SerializedMessage wire = serializer.serialize(sent, null);
+        SoapMimeParser parser = new SoapMimeParser(
+                XmlSignatureService.disabled(), XmlEncryptionService.disabled());
+
+        EbmsMessage received = parser.parse(wire.body(), wire.contentType());
+
+        assertThat(received.from().role()).isEqualTo("Bronhouder");
+        assertThat(received.to().role()).isEqualTo("Afnemer");
+        assertThat(received.from().partyIdType()).isEqualTo("urn:osb:oin");
+    }
+
+    @Test
+    void serializeError_contextWithRoles_swapsAndKeepsRoles() throws Exception {
+        EbmsMessage inbound = EbmsMessage.newInbound(
+                "msg-err@test", "conv-001", "cpa-001",
+                new Party("partner-a", null, "Afnemer"),
+                new Party("our-company", null, "Bronhouder"),
+                "OrderService", "NewOrder", Instant.now(), List.of(), false, null);
+
+        SerializedMessage result = serializer.serializeError(inbound, "ValueNotRecognized", "bad cpa");
+
+        Document doc = parseXml(new String(result.body(), StandardCharsets.UTF_8));
+        XPath xpath = buildXpath();
+
+        // The error is sent back the other way, so our role becomes the From role.
+        assertThat(xpath.evaluate(
+                "/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/eb:Role", doc))
+                .isEqualTo("Bronhouder");
+        assertThat(xpath.evaluate(
+                "/soap:Envelope/soap:Header/eb:MessageHeader/eb:To/eb:Role", doc))
+                .isEqualTo("Afnemer");
+    }
+
     private Document parseXml(String xml) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);

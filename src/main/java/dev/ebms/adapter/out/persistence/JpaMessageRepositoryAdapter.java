@@ -51,19 +51,15 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     @Override
     @Transactional(readOnly = true)
     public List<EbmsMessage> findByDirectionAndStatus(Direction direction, MessageStatus status) {
-        return jpa.findByDirectionAndStatus(direction, status).stream().map(this::toDomain).toList();
+        return jpa.findByDirectionAndStatus(direction, status).stream()
+                .map(this::toDomainWithoutPayloads)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<EbmsMessage> findPendingRetries(Instant now) {
-        return jpa.findPendingRetries(now).stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<EbmsMessage> findUnprocessedInbound() {
-        return jpa.findUnprocessedInbound().stream().map(this::toDomain).toList();
+    public List<UUID> findPendingRetryIds(Instant now) {
+        return jpa.findPendingRetryIds(now);
     }
 
     @Override
@@ -93,8 +89,10 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
         e.setCpaId(m.cpaId());
         e.setFromPartyId(m.from().partyId());
         e.setFromPartyType(m.from().partyIdType());
+        e.setFromRole(m.from().role());
         e.setToPartyId(m.to().partyId());
         e.setToPartyType(m.to().partyIdType());
+        e.setToRole(m.to().role());
         e.setService(m.service());
         e.setAction(m.action());
         e.setDirection(m.direction());
@@ -109,13 +107,24 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     }
 
     private EbmsMessage toDomain(MessageEntity e) {
+        // Touching getPayloads() initialises the LAZY collection, so this must only be used
+        // where the caller actually needs the content.
         List<Payload> payloads = e.getPayloads().stream()
                 .map(p -> new Payload(p.getContentId(), p.getMimeType(), p.getContent()))
                 .toList();
+        return toDomain(e, payloads);
+    }
+
+    /** For callers that map to a summary and never look at the content. */
+    private EbmsMessage toDomainWithoutPayloads(MessageEntity e) {
+        return toDomain(e, List.of());
+    }
+
+    private EbmsMessage toDomain(MessageEntity e, List<Payload> payloads) {
         return new EbmsMessage(
                 e.getId(), e.getMessageId(), e.getConversationId(), e.getCpaId(),
-                new Party(e.getFromPartyId(), e.getFromPartyType()),
-                new Party(e.getToPartyId(), e.getToPartyType()),
+                new Party(e.getFromPartyId(), e.getFromPartyType(), e.getFromRole()),
+                new Party(e.getToPartyId(), e.getToPartyType(), e.getToRole()),
                 e.getService(), e.getAction(), e.getTimestamp(), payloads,
                 e.getDirection(), e.getStatus(), e.getRetryCount(), e.getNextRetryAt(),
                 e.isAckRequested(), e.getRefToMessageId(), e.isProcessed()

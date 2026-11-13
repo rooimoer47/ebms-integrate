@@ -10,6 +10,7 @@ import dev.ebms.application.port.out.OutboundMessageSerializer;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
+import dev.ebms.domain.Party;
 import dev.ebms.domain.exception.CpaNotFoundException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -51,9 +53,16 @@ public class SendMessageService implements SendMessageUseCase {
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * Longest message id we will store. ebMS message ids are RFC 2822 Message-IDs; the ids our
+     * callers generate are well under this, so a longer one means a caller bug, and failing
+     * fast beats persisting something a partner MSH will reject.
+     */
+    private static final int MAX_MESSAGE_ID_LENGTH = 255;
+
     @Override
     @Transactional
-    public UUID send(SendRequest request) {
+    public SendMessageUseCase.SendResult send(SendRequest request) {
         Cpa cpa = cpaRepository.findByCpaId(request.cpaId())
                 .orElseThrow(() -> new CpaNotFoundException(request.cpaId()));
 
@@ -61,17 +70,73 @@ public class SendMessageService implements SendMessageUseCase {
                 ? request.conversationId()
                 : UUID.randomUUID().toString();
 
-        String messageId = UUID.randomUUID() + "@" + mshId;
+        String messageId = resolveMessageId(request.messageId());
+        Party from = resolveParty(cpa.fromParty(), request.fromPartyId(), request.fromRole());
+        Party to = resolveParty(cpa.toParty(), request.toPartyId(), request.toRole());
 
         EbmsMessage message = EbmsMessage.newOutbound(messageId, conversationId, cpa.cpaId(),
-                cpa.fromParty(), cpa.toParty(), request.service(), request.action(),
-                request.payloads(), cpa.ackRequested());
+                from, to, request.service(), request.action(),
+                request.payloads(), cpa.ackRequested(), request.refToMessageId());
 
         EbmsMessage saved = messageRepository.save(message);
 
         attemptSend(saved, cpa);
 
-        return saved.id();
+        return new SendResult(saved.id(), saved.messageId());
+    }
+
+    @Override
+    @Transactional
+    public Optional<SendResult> resend(String messageId) {
+        return messageRepository.findByMessageId(messageId).map(original -> send(new SendRequest(
+                original.cpaId(),
+                original.conversationId(),
+                original.service(),
+                original.action(),
+                original.payloads(),
+                // No message id: a resend is a new message and gets a new identity.
+                null,
+                original.from().partyId(),
+                original.from().role(),
+                original.to().partyId(),
+                original.to().role(),
+                // The original's own reference is carried over, not replaced by a pointer to
+                // the original. eb:RefToMessageId means "this is a response to that message",
+                // and a retransmission is not a response to the thing it retransmits.
+                original.refToMessageId())));
+    }
+
+    /**
+     * The caller's message id wins when it supplies one. Correlation across the platform is
+     * keyed on it -- jms-consumer passes through the id it received on the queue -- so
+     * generating our own over the top would break tracking end to end.
+     */
+    private String resolveMessageId(String requested) {
+        if (requested == null || requested.isBlank()) {
+            return UUID.randomUUID() + "@" + mshId;
+        }
+        String trimmed = requested.trim();
+        if (trimmed.length() > MAX_MESSAGE_ID_LENGTH) {
+            throw new IllegalArgumentException(
+                    "messageId exceeds " + MAX_MESSAGE_ID_LENGTH + " characters");
+        }
+        return trimmed;
+    }
+
+    /**
+     * A party named by the caller overrides the CPA's, which is what makes intermediary
+     * routing expressible: the CPA names the afnemer, while the caller may need the message
+     * addressed to the intermediary that fronts it. Each half falls back independently, so a
+     * caller can override the role alone.
+     */
+    private Party resolveParty(Party fromCpa, String partyId, String role) {
+        String resolvedId = partyId != null && !partyId.isBlank() ? partyId.trim() : fromCpa.partyId();
+        String resolvedRole = role != null && !role.isBlank() ? role.trim() : fromCpa.role();
+        // The party id type stays the CPA's even when the id is overridden. Callers send a bare
+        // party id with no type -- ebms-core's MessageRequestProperties has no field for one --
+        // and an overriding id is the same kind of identifier as the one it replaces: in this
+        // platform both are urn:osb:oin. Dropping the type here would silently omit eb:type.
+        return new Party(resolvedId, fromCpa.partyIdType(), resolvedRole);
     }
 
     void attemptSend(EbmsMessage message, Cpa cpa) {

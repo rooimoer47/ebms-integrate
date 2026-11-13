@@ -31,11 +31,17 @@ public class MessageEntity {
     @Column(name = "from_party_type")
     private String fromPartyType;
 
+    @Column(name = "from_role")
+    private String fromRole;
+
     @Column(name = "to_party_id", nullable = false)
     private String toPartyId;
 
     @Column(name = "to_party_type")
     private String toPartyType;
+
+    @Column(name = "to_role")
+    private String toRole;
 
     @Column(nullable = false)
     private String service;
@@ -115,5 +121,9 @@ public class MessageEntity {
     public void setRefToMessageId(String refToMessageId) { this.refToMessageId = refToMessageId; }
     public boolean isProcessed() { return processed; }
     public void setProcessed(boolean processed) { this.processed = processed; }
+    public String getFromRole() { return fromRole; }
+    public void setFromRole(String fromRole) { this.fromRole = fromRole; }
+    public String getToRole() { return toRole; }
+    public void setToRole(String toRole) { this.toRole = toRole; }
     public List<PayloadEntity> getPayloads() { return payloads; }
 }

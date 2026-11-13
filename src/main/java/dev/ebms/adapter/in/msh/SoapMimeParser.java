@@ -110,6 +110,8 @@ public class SoapMimeParser implements InboundMessageParser {
             String fromPartyType = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/eb:PartyId/@eb:type", doc);
             String toPartyId = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:To/eb:PartyId", doc);
             String toPartyType = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:To/eb:PartyId/@eb:type", doc);
+            String fromRole = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:From/eb:Role", doc);
+            String toRole = xpath.evaluate("/soap:Envelope/soap:Header/eb:MessageHeader/eb:To/eb:Role", doc);
 
             NodeList ackRequestedNodes = (NodeList) xpath.evaluate(
                     "/soap:Envelope/soap:Header/eb:AckRequested", doc, XPathConstants.NODESET);
@@ -135,8 +137,8 @@ public class SoapMimeParser implements InboundMessageParser {
                     : Instant.now();
 
             return EbmsMessage.newInbound(messageId, conversationId, cpaId,
-                    new Party(fromPartyId, nullIfBlank(fromPartyType)),
-                    new Party(toPartyId, nullIfBlank(toPartyType)),
+                    new Party(fromPartyId, nullIfBlank(fromPartyType), nullIfBlank(fromRole)),
+                    new Party(toPartyId, nullIfBlank(toPartyType), nullIfBlank(toRole)),
                     service, action, timestamp, finalPayloads, ackRequested,
                     nullIfBlank(refToMessageId));
 

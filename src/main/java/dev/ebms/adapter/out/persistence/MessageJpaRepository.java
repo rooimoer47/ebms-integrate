@@ -17,9 +17,7 @@ interface MessageJpaRepository extends JpaRepository<MessageEntity, UUID> {
     @Query("SELECT m FROM MessageEntity m WHERE (:direction IS NULL OR m.direction = :direction) AND (:status IS NULL OR m.status = :status)")
     List<MessageEntity> findByDirectionAndStatus(Direction direction, MessageStatus status);
 
-    @Query("SELECT m FROM MessageEntity m WHERE m.status = 'PENDING_SEND' AND (m.nextRetryAt IS NULL OR m.nextRetryAt <= :now)")
-    List<MessageEntity> findPendingRetries(Instant now);
+    @Query("SELECT m.id FROM MessageEntity m WHERE m.status = 'PENDING_SEND' AND (m.nextRetryAt IS NULL OR m.nextRetryAt <= :now)")
+    List<UUID> findPendingRetryIds(Instant now);
 
-    @Query("SELECT m FROM MessageEntity m WHERE m.direction = 'INBOUND' AND m.processed = false")
-    List<MessageEntity> findUnprocessedInbound();
 }

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class RetryService {
@@ -34,15 +35,19 @@ public class RetryService {
 
     @Scheduled(fixedDelay = 30_000)
     public void retryPending() {
-        List<EbmsMessage> pending = messageRepository.findPendingRetries(Instant.now());
+        List<UUID> pending = messageRepository.findPendingRetryIds(Instant.now());
         if (pending.isEmpty()) return;
 
         log.debug("Retrying {} pending message(s)", pending.size());
-        for (EbmsMessage message : pending) {
-            Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
-                    .orElseThrow(() -> new CpaNotFoundException(message.cpaId()));
-            meterRegistry.counter("ebms.retries.attempted", "cpa_id", message.cpaId()).increment();
-            sendMessageService.attemptSend(message, cpa);
+        for (UUID id : pending) {
+            // Loaded one at a time, with its payloads, rather than as a batch: a backlog of
+            // large messages would otherwise sit in the heap all at once.
+            messageRepository.findById(id).ifPresent(message -> {
+                Cpa cpa = cpaRepository.findByCpaId(message.cpaId())
+                        .orElseThrow(() -> new CpaNotFoundException(message.cpaId()));
+                meterRegistry.counter("ebms.retries.attempted", "cpa_id", message.cpaId()).increment();
+                sendMessageService.attemptSend(message, cpa);
+            });
         }
     }
 }
