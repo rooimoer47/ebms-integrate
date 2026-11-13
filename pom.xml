@@ -23,7 +23,7 @@
              Epic H test gaps are closed, so the gate is set at today's level and ratcheted up. -->
         <jacoco.version>0.8.15</jacoco.version>
         <sonar.maven.plugin.version>5.8.0.7211</sonar.maven.plugin.version>
-        <git-commit-id.version>9.0.1</git-commit-id.version>
+        <git-commit-id.version>10.0.1</git-commit-id.version>
         <jacoco.line.minimum>0.70</jacoco.line.minimum>
         <jacoco.branch.minimum>0.55</jacoco.branch.minimum>
         <!-- Analysis settings live here, not in sonar-project.properties: the Maven
