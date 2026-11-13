@@ -57,7 +57,12 @@ class EndToEndTest {
         registry.add("spring.datasource.username", () -> "postgres");
         registry.add("spring.datasource.password", () -> "postgres");
         registry.add("ebms.cpa-directory", CPA_DIR::toString);
+        registry.add("ebms.security.api.username", () -> API_USER);
+        registry.add("ebms.security.api.password", () -> API_PASSWORD);
     }
+
+    static final String API_USER = "ebms";
+    static final String API_PASSWORD = "test-secret";
 
     @LocalServerPort
     int port;
@@ -70,6 +75,8 @@ class EndToEndTest {
         // so error statuses are passed through for the assertions to inspect.
         http = RestClient.builder()
                 .baseUrl("http://localhost:" + port)
+                // The service APIs require Basic auth, exactly as the three clients send it.
+                .defaultHeaders(headers -> headers.setBasicAuth(API_USER, API_PASSWORD))
                 .defaultStatusHandler(status -> true, (request, response) -> { })
                 .build();
 

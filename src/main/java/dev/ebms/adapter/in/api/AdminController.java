@@ -2,6 +2,7 @@ package dev.ebms.adapter.in.api;
 
 import dev.ebms.application.port.in.QueryMessagesUseCase;
 import dev.ebms.application.port.in.SendMessageUseCase;
+import dev.ebms.adapter.out.cpa.CpaFileBootstrap;
 import dev.ebms.application.port.out.CpaRepository;
 import dev.ebms.domain.Cpa;
 import dev.ebms.domain.EbmsMessage;
@@ -23,13 +24,16 @@ public class AdminController {
     private final SendMessageUseCase sendMessageUseCase;
     private final QueryMessagesUseCase queryMessagesUseCase;
     private final CpaRepository cpaRepository;
+    private final CpaFileBootstrap cpaFileBootstrap;
 
     public AdminController(SendMessageUseCase sendMessageUseCase,
                            QueryMessagesUseCase queryMessagesUseCase,
-                           CpaRepository cpaRepository) {
+                           CpaRepository cpaRepository,
+                           CpaFileBootstrap cpaFileBootstrap) {
         this.sendMessageUseCase = sendMessageUseCase;
         this.queryMessagesUseCase = queryMessagesUseCase;
         this.cpaRepository = cpaRepository;
+        this.cpaFileBootstrap = cpaFileBootstrap;
     }
 
     @PostMapping("/messages")
@@ -81,8 +85,16 @@ public class AdminController {
         return cpaRepository.findAll().stream().map(this::toCpaResponse).toList();
     }
 
+    /**
+     * Re-seeds from the bootstrap directory if the store is empty, then rebuilds the projection.
+     *
+     * <p>The seed step is what keeps the docker-compose loop working now that the database is
+     * the store of record: drop a CPA file in and hit this. It cannot resurrect a deleted CPA,
+     * because seeding still only runs against an empty store.
+     */
     @PostMapping("/cpas/reload")
     public ResponseEntity<Void> reloadCpas() {
+        cpaFileBootstrap.seedIfEmpty();
         cpaRepository.reload();
         return ResponseEntity.ok().build();
     }

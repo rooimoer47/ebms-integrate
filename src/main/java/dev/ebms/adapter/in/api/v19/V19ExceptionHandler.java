@@ -1,6 +1,7 @@
 package dev.ebms.adapter.in.api.v19;
 
 import dev.ebms.domain.exception.CpaNotFoundException;
+import dev.ebms.domain.exception.InvalidCpaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
@@ -49,6 +50,21 @@ public class V19ExceptionHandler {
     @ExceptionHandler(CpaNotFoundException.class)
     public ResponseEntity<String> onCpaNotFound(CpaNotFoundException e) {
         log.warn("Rejected message: {}", e.getMessage());
+        return ResponseEntity.badRequest()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(e.getMessage());
+    }
+
+    /**
+     * A CPA that cannot be stored, with the reason in the body.
+     *
+     * <p>The body is the whole answer here: cpa-service turns any 4xx or 5xx into "CPA is
+     * invalid" and shows an operator our text, so a status code alone tells them nothing.
+     * ebms-core answers 500 for this, from an exception its own handler does not special-case.
+     */
+    @ExceptionHandler(InvalidCpaException.class)
+    public ResponseEntity<String> onInvalidCpa(InvalidCpaException e) {
+        log.warn("Rejected CPA: {}", e.getMessage());
         return ResponseEntity.badRequest()
                 .contentType(MediaType.TEXT_PLAIN)
                 .body(e.getMessage());
