@@ -56,6 +56,8 @@ class MessageIdUniquenessTest {
         registry.add("spring.datasource.url", () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
         registry.add("spring.datasource.username", () -> "postgres");
         registry.add("spring.datasource.password", () -> "postgres");
+        registry.add("ebms.security.api.username", () -> "ebms");
+        registry.add("ebms.security.api.password", () -> "test-secret");
     }
 
     @Autowired

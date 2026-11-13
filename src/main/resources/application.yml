@@ -37,6 +37,12 @@ ebms:
   host-party-id-type: ${HOST_PARTY_ID_TYPE:}
   msh-id: ${MSH_ID:msh.ebms.dev}
   security:
+    # HTTP Basic over /service/rest/**, /api/** and the non-probe actuator endpoints. All three
+    # clients already send these credentials. Startup fails if they are absent and auth is on.
+    api:
+      enabled: ${EBMS_API_AUTH_ENABLED:true}
+      username: ${EBMS_API_USERNAME:}
+      password: ${EBMS_API_PASSWORD:}
     keystore-path: ${EBMS_KEYSTORE_PATH:}
     keystore-password: ${EBMS_KEYSTORE_PASSWORD:}
     keystore-alias: ${EBMS_KEYSTORE_ALIAS:ebms}
