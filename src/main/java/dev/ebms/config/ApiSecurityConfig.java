@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
 
 /**
  * HTTP Basic authentication over the service APIs.
@@ -47,6 +49,26 @@ public class ApiSecurityConfig {
     public ApiSecurityConfig(EbmsSecurityProperties properties) {
         this.properties = properties;
         properties.getApi().validate();
+    }
+
+    /**
+     * Allows a percent-encoded {@code %} in the path, which {@link StrictHttpFirewall} rejects
+     * by default with a bare 400.
+     *
+     * <p>This is not a hypothetical: cpa-service URL-encodes a cpaId itself and its RestClient
+     * encodes the result again, so {@code GET /cpas/DGL-ONTVANGEN-1-0%25241-0_...} is the normal
+     * shape of a request for a CPA whose id contains {@code $} -- which production ids do.
+     * Without this, adding Spring Security silently breaks every CPA read and delete for that
+     * whole family of ids, before the request reaches a controller.
+     *
+     * <p>Everything else the firewall checks stays on: encoded slashes, backslashes, null bytes,
+     * control characters and non-normalised paths are still refused.
+     */
+    @Bean
+    HttpFirewall httpFirewall() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedPercent(true);
+        return firewall;
     }
 
     @Bean
