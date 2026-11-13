@@ -35,6 +35,23 @@ public class QueryMessagesService implements QueryMessagesUseCase {
     }
 
     @Override
+    @Transactional
+    public Optional<EbmsMessage> fetchByMessageId(String messageId, boolean markProcessed) {
+        Optional<EbmsMessage> message = messageRepository.findByMessageId(messageId);
+        if (markProcessed) {
+            return message.map(m -> {
+                if (!m.processed()) {
+                    messageRepository.markProcessed(m.id());
+                }
+                // Return the post-call state: the contract defines process=true as giving the
+                // message the PROCESSED status, so the response has to reflect that.
+                return m.withProcessed(true);
+            });
+        }
+        return message;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Optional<Payload> findPayload(UUID messageId, String contentId) {
         return messageRepository.findById(messageId)

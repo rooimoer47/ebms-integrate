@@ -15,10 +15,12 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Base64;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -199,6 +201,157 @@ class EndToEndTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> updated = http.get().uri("/api/messages/" + sentId).retrieve().body(Map.class);
         assertThat(updated).containsEntry("status", "ACKED");
+    }
+
+    // ---------- P1-4: the v19 fetch endpoint jms-producer calls ----------
+
+    @Test
+    void v19GetMessage_returnsTheShapeTheGeneratedClientModelExpects() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, true);
+
+        assertThat(props)
+                .containsEntry("cpaId", "cpa-test")
+                .containsEntry("messageId", messageId)
+                .containsEntry("conversationId", "conv-e2e-001")
+                .containsEntry("service", "OrderService")
+                .containsEntry("action", "NewOrder");
+        assertThat(asMap(props.get("fromParty"))).containsEntry("partyId", "partner-a");
+        assertThat(asMap(props.get("toParty"))).containsEntry("partyId", "our-company");
+
+        // Every property jms-producer's MessageFactory reads has to be present.
+        assertThat(props).containsKeys("cpaId", "conversationId", "messageId", "service",
+                "action", "fromParty", "toParty", "messageStatus", "timestamp");
+    }
+
+    @Test
+    void v19GetMessage_writesStatusAsAStringAndTimestampAsIso() {
+        // ebms-core 2.20.x models MessageStatus as an object; the clients are generated from
+        // the v18 copy where it is a bare enum, and theirs is the one that deserialises.
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        Map<String, Object> props = v19Properties(messageId, true);
+
+        assertThat(props.get("messageStatus")).isInstanceOf(String.class);
+        assertThat((String) props.get("timestamp")).matches("\\d{4}-\\d{2}-\\d{2}T.*");
+    }
+
+    @Test
+    void v19GetMessage_writesPayloadContentAsBase64() {
+        // Submitted rather than received, because it is the only route here that carries a
+        // payload -- the inbound fixture has an empty SOAP body. jms-producer reads
+        // dataSources.get(0).getContent(), so the base64 round trip is load-bearing.
+        String content = "<order><line>1</line></order>";
+        String messageId = submitWithPayload(content);
+
+        List<Map<String, Object>> dataSources = v19DataSources(messageId);
+
+        assertThat(dataSources).hasSize(1);
+        assertThat(dataSources.get(0))
+                .containsEntry("contentId", "order-1")
+                .containsEntry("name", "order-1")
+                .containsEntry("contentType", "text/xml; charset=UTF-8");
+        assertThat(new String(Base64.getDecoder()
+                .decode((String) dataSources.get(0).get("content")), StandardCharsets.UTF_8))
+                .isEqualTo(content);
+    }
+
+    @Test
+    void v19GetMessage_outboundAwaitingAck_isReportedAsCreatedNotDelivered() {
+        // The CPA requests an acknowledgement and the stub partner answers with something that
+        // is not one, so the message sits at SENT -- reported as CREATED, because the ack is
+        // the proof of delivery.
+        String messageId = submitWithPayload("<order/>");
+
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "CREATED");
+    }
+
+    @Test
+    void v19GetMessage_processTrue_reportsProcessed() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Properties(messageId, true)).containsEntry("messageStatus", "PROCESSED");
+
+        // A second fetch still returns it -- a redelivered RECEIVED event must not 404.
+        assertThat(v19Get(messageId, true, Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void v19GetMessage_processFalse_leavesTheMessageUnprocessed() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "RECEIVED");
+        assertThat(v19Properties(messageId, false)).containsEntry("messageStatus", "RECEIVED");
+    }
+
+    @Test
+    void v19GetMessage_urlEncodedMessageId_resolvesToTheSameMessage() {
+        // jms-producer URL-encodes the id, so the '@' of the Message-ID arrives as %40.
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19Get(messageId, false, Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(v19Properties(messageId, false)).containsEntry("messageId", messageId);
+    }
+
+    @Test
+    void v19GetMessage_messageWithNoPayloads_stillReportsAnEmptyDataSourcesArray() {
+        String messageId = UUID.randomUUID() + "@partner-a.example.com";
+        postSoap(soapEnvelope(messageId));
+
+        assertThat(v19DataSources(messageId)).isEmpty();
+    }
+
+    @Test
+    void v19GetMessage_unknownId_is404() {
+        assertThat(v19Get("no-such-message@nowhere.example.com", false, Map.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** Mirrors how jms-producer builds the call: encoded path segment plus a process flag. */
+    private <T> ResponseEntity<T> v19Get(String messageId, boolean process, Class<T> type) {
+        return http.get()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/messages/{messageId}")
+                        .queryParam("process", process)
+                        .build(messageId))
+                .retrieve()
+                .toEntity(type);
+    }
+
+    private Map<String, Object> v19Properties(String messageId, boolean process) {
+        return asMap(asMap(v19Get(messageId, process, Map.class).getBody()).get("properties"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> v19DataSources(String messageId) {
+        return (List<Map<String, Object>>) asMap(
+                v19Get(messageId, false, Map.class).getBody()).get("dataSources");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object value) {
+        return (Map<String, Object>) value;
+    }
+
+    private String submitWithPayload(String content) {
+        Map<String, Object> request = Map.of(
+                "cpaId", "cpa-test",
+                "conversationId", UUID.randomUUID().toString(),
+                "service", "OrderService",
+                "action", "NewOrder",
+                "payloads", List.of(Map.of(
+                        "contentId", "order-1",
+                        "mimeType", "text/xml; charset=UTF-8",
+                        "content", Base64.getEncoder()
+                                .encodeToString(content.getBytes(StandardCharsets.UTF_8))))
+        );
+        return (String) asMap(postJson(request).getBody()).get("messageId");
     }
 
     private ResponseEntity<String> postSoap(String envelope) {
