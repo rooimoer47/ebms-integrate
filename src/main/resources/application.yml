@@ -32,7 +32,10 @@ management:
       application: ebms-msh
 
 ebms:
+  # Bootstrap only: the cpas table is the store of record. Files seed an empty store so that
+  # docker-compose and CI come up with known CPAs; they never update or resurrect a row.
   cpa-directory: ${CPA_DIRECTORY:config/cpas}
+  cpa-bootstrap-enabled: ${EBMS_CPA_BOOTSTRAP_ENABLED:true}
   # Every party id that is us, comma-separated. A list because this platform has more than one:
   # cpa-service answers the same question with cpa.default.server.oin, which carries two OINs.
   # Bare or urn:osb:oin:-prefixed, either matches. An XML CPA naming none of these is rejected
