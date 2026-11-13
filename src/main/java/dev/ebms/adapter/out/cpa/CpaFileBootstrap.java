@@ -35,16 +35,16 @@ public class CpaFileBootstrap {
     private static final Logger log = LoggerFactory.getLogger(CpaFileBootstrap.class);
 
     private final CpaRepository cpas;
-    private final CpaDocumentParser parser;
+    private final CpaValidator validator;
     private final Path directory;
     private final boolean enabled;
 
     public CpaFileBootstrap(CpaRepository cpas,
-                            CpaDocumentParser parser,
+                            CpaValidator validator,
                             @Value("${ebms.cpa-directory}") String directory,
                             @Value("${ebms.cpa-bootstrap-enabled:true}") boolean enabled) {
         this.cpas = cpas;
-        this.parser = parser;
+        this.validator = validator;
         this.directory = Path.of(directory);
         this.enabled = enabled;
     }
@@ -92,8 +92,12 @@ public class CpaFileBootstrap {
             String document = Files.readString(file);
             String contentType = CpaDocumentParser.contentTypeOf(file);
             String source = String.valueOf(file.getFileName());
-            // The id comes from the document, as it does for an upload.
-            String cpaId = parser.project(document, contentType, source).cpaId();
+            // The id comes from the document, as it does for an upload. STRUCTURAL rather than
+            // FULL: these files are operator-supplied on a mounted volume, not posted by a
+            // client, and the YAML form has no schema to hold them to.
+            String cpaId = validator
+                    .validate(document, contentType, source, CpaValidator.Strictness.STRUCTURAL)
+                    .cpaId();
             cpas.save(cpaId, document, contentType, "bootstrap:" + source);
             return true;
         } catch (Exception e) {

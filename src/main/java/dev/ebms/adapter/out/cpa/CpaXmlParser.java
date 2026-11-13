@@ -24,6 +24,9 @@ import org.xml.sax.SAXException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Iterator;
@@ -76,6 +79,46 @@ class CpaXmlParser {
                 rm.retries(),
                 rm.retryInterval(),
                 extractCertificate(parties.partner(), xpath, source));
+    }
+
+    /** Agreement lifecycle, which is what validation judges and the projection does not model. */
+    record Lifecycle(String status, Instant start, Instant end) {}
+
+    /**
+     * Reads Status, Start and End. Separate from {@link #parse}: the projection the message
+     * paths use does not model agreement validity, and reading it there would invite expiry to
+     * be enforced on a read path, where a CPA would silently vanish mid-flight.
+     */
+    Lifecycle readLifecycle(byte[] document)
+            throws ParserConfigurationException, SAXException, IOException, XPathExpressionException {
+        Document doc = parseXml(document);
+        XPath xpath = buildXpath();
+        Node status = (Node) xpath.evaluate(
+                "/cpa:CollaborationProtocolAgreement/cpa:Status", doc, XPathConstants.NODE);
+        String statusValue = null;
+        if (status instanceof Element element) {
+            statusValue = element.getAttributeNS(CPA_NS, "value");
+            if (statusValue.isBlank()) {
+                statusValue = element.getAttribute("value");
+            }
+        }
+        return new Lifecycle(
+                statusValue == null || statusValue.isBlank() ? null : statusValue,
+                instantAt(xpath, doc, "Start"),
+                instantAt(xpath, doc, "End"));
+    }
+
+    private Instant instantAt(XPath xpath, Document doc, String element) throws XPathExpressionException {
+        String value = xpath.evaluate(
+                "/cpa:CollaborationProtocolAgreement/cpa:" + element, doc).trim();
+        if (value.isBlank()) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(value).toInstant();
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(element + " is not a valid dateTime: " + value, e);
+        }
     }
 
     Cpa parse(Path file, List<String> ourPartyIds)

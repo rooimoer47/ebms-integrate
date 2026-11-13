@@ -42,6 +42,10 @@ ebms:
   # rather than routed on a guess.
   host-party-ids: ${HOST_PARTY_IDS:}
   host-party-id-type: ${HOST_PARTY_ID_TYPE:}
+  # What to do about a CPA whose partner endpoint is not https. WARN matches upstream ebms-core
+  # 2.20.x, which only logs it -- and the CPAs in use carry http:// endpoints, so REJECT would
+  # refuse agreements that work today. REJECT matches the hardened ebms-core fork.
+  cpa-endpoint-policy: ${EBMS_CPA_ENDPOINT_POLICY:WARN}
   msh-id: ${MSH_ID:msh.ebms.dev}
   security:
     # HTTP Basic over /service/rest/**, /api/** and the non-probe actuator endpoints. All three
