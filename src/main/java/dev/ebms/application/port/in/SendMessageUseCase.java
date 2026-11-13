@@ -3,6 +3,7 @@ package dev.ebms.application.port.in;
 import dev.ebms.domain.Payload;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SendMessageUseCase {
@@ -15,6 +16,15 @@ public interface SendMessageUseCase {
      *                  generated -- either way it is what the v19 contract answers with
      */
     record SendResult(UUID id, String messageId) {}
+
+    /**
+     * Send the content of an existing message again as a new ebMS message, as the contract's
+     * {@code PUT /messages/{messageId}} defines it: the original is left alone and a freshly
+     * identified message goes out carrying the same payloads and parties.
+     *
+     * @return empty when no message has that id, which the contract reports as a 404
+     */
+    Optional<SendResult> resend(String messageId);
 
     /**
      * A request to send a message. Everything after {@code payloads} is optional and comes

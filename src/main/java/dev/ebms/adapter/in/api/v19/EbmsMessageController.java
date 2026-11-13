@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +54,26 @@ public class EbmsMessageController {
         log.info("Accepted message {} for cpa {}", result.messageId(),
                 request.properties() != null ? request.properties().cpaId() : null);
         return ResponseEntity.ok(result.messageId());
+    }
+
+    /**
+     * Resend an existing message's content as a new ebMS message, answering with the new id.
+     *
+     * <p>jms-consumer's {@code Resender} drives this from the {@code FAILED} and
+     * {@code EXPIRED} queues and treats a 404 as "drop it from the queue", so an unknown id
+     * must not come back as anything else.
+     */
+    @PutMapping(value = "/{messageId}", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<String> resendMessage(@PathVariable String messageId) {
+        return sendMessageUseCase.resend(messageId)
+                .map(result -> {
+                    log.info("Resent {} as {}", messageId, result.messageId());
+                    return ResponseEntity.ok(result.messageId());
+                })
+                .orElseGet(() -> {
+                    log.info("Cannot resend: no message with id {}", messageId);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     /**

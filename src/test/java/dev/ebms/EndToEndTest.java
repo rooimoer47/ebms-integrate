@@ -443,6 +443,177 @@ class EndToEndTest {
         assertThat(asMap(props.get("toParty"))).containsEntry("role", "Afnemer");
     }
 
+    // ---------- P1-7: resend, which jms-consumer's Resender drives ----------
+
+    @Test
+    void v19Resend_returnsANewIdAndLeavesTheOriginalAlone() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        ResponseEntity<String> response = v19Resend(original);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String resentId = response.getBody();
+        assertThat(resentId).isNotBlank().isNotEqualTo(original).endsWith("@msh.ebms.dev");
+
+        // Both messages exist afterwards.
+        assertThat(v19Properties(original, false)).containsEntry("messageId", original);
+        assertThat(v19Properties(resentId, false)).containsEntry("messageId", resentId);
+    }
+
+    @Test
+    void v19Resend_copiesPayloadsPartiesAndRoles() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        String resentId = v19Resend(original).getBody();
+
+        Map<String, Object> props = v19Properties(resentId, false);
+        assertThat(props)
+                .containsEntry("cpaId", "cpa-test")
+                .containsEntry("conversationId", "conv-v19-submit")
+                .containsEntry("service", "OrderService")
+                .containsEntry("action", "NewOrder");
+        assertThat(asMap(props.get("fromParty"))).containsEntry("role", "Bronhouder");
+        assertThat(asMap(props.get("toParty"))).containsEntry("role", "Afnemer");
+        assertThat(v19DataSources(resentId)).hasSize(1);
+    }
+
+    @Test
+    void v19Resend_reachesThePartnerAgain() {
+        String original = "AFN-" + UUID.randomUUID() + "@00000001810220350000";
+        v19Submit(jmsConsumerStyleRequest(original));
+
+        String resentId = v19Resend(original).getBody();
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing(resentId)));
+    }
+
+    @Test
+    void v19Resend_unknownId_is404SoTheResenderDropsIt() {
+        // Resender treats a 404 as "the message is gone, take it off the queue".
+        assertThat(v19Resend("no-such-message@nowhere.example.com").getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ---------- P1-8: the ebMS ping cpa-service exposes to the console ----------
+
+    @Test
+    void v19Ping_partnerAnswersWithPong_is200() {
+        stubPong();
+
+        ResponseEntity<String> response = v19Ping("cpa-test",
+                "urn:osb:oin:00000001822477348001", "urn:osb:oin:00000001810220350000");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .withRequestBody(containing("urn:oasis:names:tc:ebxml-msg:service")));
+    }
+
+    @Test
+    void v19Ping_sendsNoPayloadAndRequestsNoAck() {
+        stubPong();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000001810220350000");
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .withRequestBody(notContaining("eb:AckRequested"))
+                .withRequestBody(notContaining("eb:Manifest")));
+    }
+
+    @Test
+    void v19Ping_partyIdsFromThePathReachTheHeader() {
+        stubPong();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000003342283970000");
+
+        partnerMsh.verify(postRequestedFor(urlEqualTo("/ebms/msh"))
+                .withRequestBody(containing("urn:osb:oin:00000003342283970000")));
+    }
+
+    @Test
+    void v19Ping_noPongBack_is502BecauseThePartnerIsAtFault() {
+        partnerMsh.stubFor(post(urlEqualTo("/ebms/msh"))
+                .atPriority(1)
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "text/xml; charset=UTF-8")
+                        .withBody("<nothing-useful/>")));
+
+        ResponseEntity<String> response = v19Ping("cpa-test",
+                "urn:osb:oin:00000001822477348001", "urn:osb:oin:00000001810220350000");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody()).contains("cpa-test");
+    }
+
+    @Test
+    void v19Ping_unknownCpa_is404() {
+        assertThat(v19Ping("cpa-does-not-exist", "urn:osb:oin:1", "urn:osb:oin:2")
+                .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void v19Ping_isNotRecordedAsAMessage() {
+        // A connectivity check is not business traffic and must stay out of the history the
+        // admin console shows.
+        stubPong();
+        int before = inboundAndOutboundCount();
+
+        v19Ping("cpa-test", "urn:osb:oin:00000001822477348001",
+                "urn:osb:oin:00000001810220350000");
+
+        assertThat(inboundAndOutboundCount()).isEqualTo(before);
+    }
+
+    private void stubPong() {
+        partnerMsh.stubFor(post(urlEqualTo("/ebms/msh"))
+                .atPriority(1)
+                .withRequestBody(containing("<eb:Action>Ping</eb:Action>"))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "text/xml; charset=UTF-8")
+                        .withBody("""
+                                <?xml version="1.0" encoding="UTF-8"?>
+                                <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+                                                   xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd">
+                                  <SOAP-ENV:Header>
+                                    <eb:MessageHeader SOAP-ENV:mustUnderstand="1" eb:version="2.0">
+                                      <eb:Service>urn:oasis:names:tc:ebxml-msg:service</eb:Service>
+                                      <eb:Action>Pong</eb:Action>
+                                    </eb:MessageHeader>
+                                  </SOAP-ENV:Header>
+                                  <SOAP-ENV:Body/>
+                                </SOAP-ENV:Envelope>
+                                """)));
+    }
+
+    private int inboundAndOutboundCount() {
+        return http.get().uri("/api/messages").retrieve().body(List.class).size();
+    }
+
+    private ResponseEntity<String> v19Resend(String messageId) {
+        return http.put()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/messages/{messageId}")
+                        .build(messageId))
+                .retrieve()
+                .toEntity(String.class);
+    }
+
+    private ResponseEntity<String> v19Ping(String cpaId, String fromPartyId, String toPartyId) {
+        return http.post()
+                .uri(builder -> builder
+                        .path("/service/rest/v19/ebms/ping/{cpaId}/from/{from}/to/{to}")
+                        .build(cpaId, fromPartyId, toPartyId))
+                .retrieve()
+                .toEntity(String.class);
+    }
+
     private ResponseEntity<String> v19Submit(Map<String, Object> request) {
         return http.post()
                 .uri("/service/rest/v19/ebms/messages")

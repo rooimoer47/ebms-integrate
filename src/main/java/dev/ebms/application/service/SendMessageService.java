@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -82,6 +83,27 @@ public class SendMessageService implements SendMessageUseCase {
         attemptSend(saved, cpa);
 
         return new SendResult(saved.id(), saved.messageId());
+    }
+
+    @Override
+    @Transactional
+    public Optional<SendResult> resend(String messageId) {
+        return messageRepository.findByMessageId(messageId).map(original -> send(new SendRequest(
+                original.cpaId(),
+                original.conversationId(),
+                original.service(),
+                original.action(),
+                original.payloads(),
+                // No message id: a resend is a new message and gets a new identity.
+                null,
+                original.from().partyId(),
+                original.from().role(),
+                original.to().partyId(),
+                original.to().role(),
+                // The original's own reference is carried over, not replaced by a pointer to
+                // the original. eb:RefToMessageId means "this is a response to that message",
+                // and a retransmission is not a response to the thing it retransmits.
+                original.refToMessageId())));
     }
 
     /**
