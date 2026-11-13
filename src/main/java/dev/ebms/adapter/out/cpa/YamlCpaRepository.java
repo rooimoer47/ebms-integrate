@@ -30,15 +30,15 @@ public class YamlCpaRepository implements CpaRepository {
 
     private final Map<String, Cpa> cpas = new ConcurrentHashMap<>();
     private final Path cpaDirectory;
-    private final String ourPartyId;
+    private final List<String> ourPartyIds;
     private final YAMLMapper yaml = YAMLMapper.builder().build();
     private final CpaXmlParser xmlParser = new CpaXmlParser();
 
     public YamlCpaRepository(
             @Value("${ebms.cpa-directory}") String cpaDirectory,
-            @Value("${ebms.host-party-id:}") String ourPartyId) {
+            @Value("${ebms.host-party-ids:}") List<String> ourPartyIds) {
         this.cpaDirectory = Path.of(cpaDirectory);
-        this.ourPartyId = ourPartyId;
+        this.ourPartyIds = ourPartyIds;
     }
 
     @PostConstruct
@@ -92,7 +92,7 @@ public class YamlCpaRepository implements CpaRepository {
         try {
             Cpa cpa;
             if (file.toString().endsWith(".xml")) {
-                cpa = xmlParser.parse(file, ourPartyId);
+                cpa = xmlParser.parse(file, ourPartyIds);
             } else {
                 CpaFileConfig config = yaml.readValue(file.toFile(), CpaFileConfig.class);
                 X509Certificate cert = loadCertFromPath(config.recipientCertPath, file);

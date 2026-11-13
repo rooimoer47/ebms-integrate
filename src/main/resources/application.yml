@@ -33,7 +33,11 @@ management:
 
 ebms:
   cpa-directory: ${CPA_DIRECTORY:config/cpas}
-  host-party-id: ${HOST_PARTY_ID:our-party}
+  # Every party id that is us, comma-separated. A list because this platform has more than one:
+  # cpa-service answers the same question with cpa.default.server.oin, which carries two OINs.
+  # Bare or urn:osb:oin:-prefixed, either matches. An XML CPA naming none of these is rejected
+  # rather than routed on a guess.
+  host-party-ids: ${HOST_PARTY_IDS:}
   host-party-id-type: ${HOST_PARTY_ID_TYPE:}
   msh-id: ${MSH_ID:msh.ebms.dev}
   security:
