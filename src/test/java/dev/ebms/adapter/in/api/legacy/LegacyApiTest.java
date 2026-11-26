@@ -274,9 +274,9 @@ class LegacyApiTest {
 
     @Test
     void deliveryLog_isTheMessagesAttemptsOldestFirst() {
-        attempt("out-2@00000003342283970000", at(DAY2, 10), 2, "503 Service Unavailable");
-        attempt("out-2@00000003342283970000", at(DAY2, 11), 1, null);
-        attempt("out-1@us", at(DAY2, 9), 1, null);
+        attempt("out-2@00000003342283970000", at(DAY2, 10), "FAILED", "503 Service Unavailable");
+        attempt("out-2@00000003342283970000", at(DAY2, 11), "SUCCEEDED", null);
+        attempt("out-1@us", at(DAY2, 9), "SUCCEEDED", null);
 
         List<EbmsDeliveryLogEntry> log = readStrict(
                 http.get().uri("/ebms/message/deliverylog?messageId={id}", "out-2@00000003342283970000")
@@ -328,10 +328,10 @@ class LegacyApiTest {
     @Test
     void failureCounts_areFailedAttemptsPerHost_inTheWindow() {
         Instant now = Instant.now();
-        attempt("a", now.minusSeconds(60), 2, "x", "https://afnemer.example.nl/ebms/msh");
-        attempt("b", now.minusSeconds(30), 2, "x", "https://afnemer.example.nl:8443/ebms");
-        attempt("c", now.minusSeconds(30), 1, null, "https://afnemer.example.nl/ebms/msh");
-        attempt("d", now.minusSeconds(3600), 2, "x", "https://afnemer.example.nl/ebms/msh");
+        attempt("a", now.minusSeconds(60), "FAILED", "x", "https://afnemer.example.nl/ebms/msh");
+        attempt("b", now.minusSeconds(30), "FAILED", "x", "https://afnemer.example.nl:8443/ebms");
+        attempt("c", now.minusSeconds(30), "SUCCEEDED", null, "https://afnemer.example.nl/ebms/msh");
+        attempt("d", now.minusSeconds(3600), "FAILED", "x", "https://afnemer.example.nl/ebms/msh");
 
         Map<String, Integer> counts = STRICT.readValue(
                 http.get().uri("/ebms/throttle/failurecounts?minutes=5").retrieve().body(String.class),
@@ -342,7 +342,7 @@ class LegacyApiTest {
 
     @Test
     void failureCounts_defaultsToAnHour_andRefusesANonsenseWindow() {
-        attempt("a", Instant.now().minusSeconds(1800), 2, "x", "https://afnemer.example.nl/ebms/msh");
+        attempt("a", Instant.now().minusSeconds(1800), "FAILED", "x", "https://afnemer.example.nl/ebms/msh");
 
         assertThat(http.get().uri("/ebms/throttle/failurecounts").retrieve().body(String.class))
                 .isEqualTo("{\"afnemer.example.nl\":1}");
@@ -459,12 +459,12 @@ class LegacyApiTest {
                 """, args.toArray());
     }
 
-    private void attempt(String messageId, Instant at, int status, String error) {
+    private void attempt(String messageId, Instant at, String status, String error) {
         attempt(messageId, at, status, error, "https://partner-a.example.nl/ebms/msh");
     }
 
-    private void attempt(String messageId, Instant at, int status, String error, String uri) {
+    private void attempt(String messageId, Instant at, String status, String error, String uri) {
         jdbc.update("INSERT INTO delivery_log (message_id, time_stamp, uri, status, error_message) VALUES (?, ?, ?, ?, ?)",
-                messageId, Timestamp.from(at), uri, (short) status, error);
+                messageId, Timestamp.from(at), uri, status, error);
     }
 }

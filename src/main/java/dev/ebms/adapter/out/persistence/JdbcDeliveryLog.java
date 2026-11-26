@@ -46,7 +46,7 @@ public class JdbcDeliveryLog implements DeliveryLog {
                         .addValue("messageId", attempt.messageId())
                         .addValue("timeStamp", Timestamp.from(attempt.attemptedAt()))
                         .addValue("uri", attempt.uri())
-                        .addValue("status", attempt.outcome().code())
+                        .addValue("status", attempt.outcome().name())
                         .addValue("errorMessage", attempt.errorMessage()));
     }
 
@@ -64,7 +64,7 @@ public class JdbcDeliveryLog implements DeliveryLog {
                         rs.getString("message_id"),
                         rs.getTimestamp("time_stamp").toInstant(),
                         rs.getString("uri"),
-                        Outcome.ofCode(rs.getShort("status")),
+                        Outcome.valueOf(rs.getString("status")),
                         rs.getString("error_message")));
     }
 
@@ -77,7 +77,7 @@ public class JdbcDeliveryLog implements DeliveryLog {
                         + " WHERE status = :failed AND time_stamp >= :since"
                         + " GROUP BY host",
                 new MapSqlParameterSource()
-                        .addValue("failed", Outcome.FAILED.code())
+                        .addValue("failed", Outcome.FAILED.name())
                         .addValue("since", Timestamp.from(since)),
                 rs -> {
                     String host = rs.getString("host");

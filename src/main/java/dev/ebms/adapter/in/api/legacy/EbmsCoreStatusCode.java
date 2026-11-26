@@ -3,6 +3,7 @@ package dev.ebms.adapter.in.api.legacy;
 import dev.ebms.adapter.in.api.v19.MessageStatusMapper;
 import dev.ebms.adapter.in.api.v19.V19MessageStatus;
 import dev.ebms.application.port.out.MessageSearchRepository.StatusMatch;
+import dev.ebms.domain.DeliveryAttempt;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 
@@ -40,6 +41,18 @@ public final class EbmsCoreStatusCode {
             case DELIVERY_FAILED -> 11;
             case DELIVERED -> 12;
             case EXPIRED -> 13;
+        };
+    }
+
+    /**
+     * A delivery attempt's outcome as ebms-core's {@code DeliveryTaskStatus} numbered it, which the
+     * console reads from the delivery log. Stored as text in our own table; numbered only here.
+     */
+    public static short of(DeliveryAttempt.Outcome outcome) {
+        return switch (outcome) {
+            case SUCCEEDED -> 1;
+            case FAILED -> 2;
+            case EXPIRED -> 3;
         };
     }
 

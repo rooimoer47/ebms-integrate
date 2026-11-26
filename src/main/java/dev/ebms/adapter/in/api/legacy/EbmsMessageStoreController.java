@@ -131,7 +131,7 @@ public class EbmsMessageStoreController {
                 attempt.messageId(),
                 local(attempt.attemptedAt()),
                 attempt.uri(),
-                attempt.outcome().code(),
+                EbmsCoreStatusCode.of(attempt.outcome()),
                 // ebms-api-service turned a null error into "", and the console may rely on it.
                 attempt.errorMessage() == null ? "" : attempt.errorMessage());
     }

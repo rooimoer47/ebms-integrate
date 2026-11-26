@@ -84,12 +84,19 @@ class JdbcDeliveryLogTest {
         assertThat(deliveryLog.findByMessageId("never-sent")).isEmpty();
     }
 
-    /** ebms-core's numbering, so a query written against its table reads the same here. */
+    /** Text, like messages.status: ebms-core's 1/2/3 is applied only at the API edge. */
     @Test
-    void outcomes_areStoredAsEbmsCoresNumbers() {
+    void outcomes_areStoredAsTheirNames() {
         deliveryLog.record(new DeliveryAttempt("m-1", now, "https://a.nl", Outcome.FAILED, "x"));
 
-        assertThat(jdbc.queryForObject("SELECT status FROM delivery_log", Short.class)).isEqualTo((short) 2);
+        assertThat(jdbc.queryForObject("SELECT status FROM delivery_log", String.class)).isEqualTo("FAILED");
+    }
+
+    @Test
+    void anUnknownOutcome_isRefusedByTheTable() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+                        "INSERT INTO delivery_log (message_id, time_stamp, status) VALUES ('m', now(), 'MAYBE')"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     /**

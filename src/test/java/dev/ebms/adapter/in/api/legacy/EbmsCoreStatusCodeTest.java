@@ -87,6 +87,13 @@ class EbmsCoreStatusCodeTest {
         assertThat(EbmsCoreStatusCode.matching(code)).isEmpty();
     }
 
+    /** ebms-core's DeliveryTaskStatus, which the console reads from the delivery log. */
+    @ParameterizedTest
+    @CsvSource({"SUCCEEDED, 1", "FAILED, 2", "EXPIRED, 3"})
+    void deliveryOutcomes_haveEbmsCoresNumbers(dev.ebms.domain.DeliveryAttempt.Outcome outcome, short code) {
+        assertThat(EbmsCoreStatusCode.of(outcome)).isEqualTo(code);
+    }
+
     @Test
     void codes_areUnique() {
         short[] codes = new short[V19MessageStatus.values().length];
