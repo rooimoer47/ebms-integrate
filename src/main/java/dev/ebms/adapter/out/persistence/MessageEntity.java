@@ -63,6 +63,9 @@ public class MessageEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "status_time", nullable = false)
+    private Instant statusTime;
+
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
@@ -111,6 +114,8 @@ public class MessageEntity {
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getStatusTime() { return statusTime; }
+    public void setStatusTime(Instant statusTime) { this.statusTime = statusTime; }
     public int getRetryCount() { return retryCount; }
     public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
     public Instant getNextRetryAt() { return nextRetryAt; }

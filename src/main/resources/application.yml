@@ -47,6 +47,10 @@ ebms:
   # refuse agreements that work today. REJECT matches the hardened ebms-core fork.
   cpa-endpoint-policy: ${EBMS_CPA_ENDPOINT_POLICY:WARN}
   msh-id: ${MSH_ID:msh.ebms.dev}
+  # Per-attempt delivery history behind the console's delivery log and jms-consumer's failure
+  # counts. Purged hourly; throttling looks back minutes, operators days.
+  delivery-log:
+    retention: ${EBMS_DELIVERY_LOG_RETENTION:30d}
   security:
     # HTTP Basic over /service/rest/**, /api/** and the non-probe actuator endpoints. All three
     # clients already send these credentials. Startup fails if they are absent and auth is on.
@@ -54,6 +58,10 @@ ebms:
       enabled: ${EBMS_API_AUTH_ENABLED:true}
       username: ${EBMS_API_USERNAME:}
       password: ${EBMS_API_PASSWORD:}
+      # Optional second account for /ebms/message/** and /ebms/throttle/**, absorbed from
+      # ebms-api-service: osdbk.ebms.api.service-secret, which cpa-service and jms-consumer send.
+      api-service-username: ${EBMS_API_SERVICE_USERNAME:}
+      api-service-password: ${EBMS_API_SERVICE_PASSWORD:}
     keystore-path: ${EBMS_KEYSTORE_PATH:}
     keystore-password: ${EBMS_KEYSTORE_PASSWORD:}
     keystore-alias: ${EBMS_KEYSTORE_ALIAS:ebms}

@@ -39,9 +39,19 @@ public class ApiSecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ApiSecurityConfig.class);
 
-    /** The paths that carry the client contract, plus the actuator endpoints that are not probes. */
+    /**
+     * The paths that carry the client contract, plus the actuator endpoints that are not probes.
+     *
+     * <p>{@code /ebms/message} and {@code /ebms/throttle} are the paths absorbed from
+     * ebms-api-service. They sit beside the open partner endpoint {@code /ebms/msh}, so they are
+     * listed exactly rather than as {@code /ebms/**} -- which would lock partners out. Without
+     * them here they would fall through to the open chain below, leaving {@code PUT .../move} an
+     * unauthenticated write. (ebms-api-service itself permitted everything; its callers have
+     * been sending credentials nothing checked.)
+     */
     static final String[] PROTECTED_PATHS = {
-            "/service/rest/**", "/api/**", "/actuator/prometheus", "/actuator/info"
+            "/service/rest/**", "/api/**", "/actuator/prometheus", "/actuator/info",
+            "/ebms/message", "/ebms/message/**", "/ebms/throttle/**"
     };
 
     private final EbmsSecurityProperties properties;
@@ -77,14 +87,28 @@ public class ApiSecurityConfig {
         if (!api.isEnabled()) {
             return new InMemoryUserDetailsManager();
         }
-        return new InMemoryUserDetailsManager(User.withUsername(api.getUsername())
+        InMemoryUserDetailsManager users = new InMemoryUserDetailsManager(
+                serviceAccount(api.getUsername(), api.getPassword()));
+        // cpa-service and jms-consumer call the absorbed ebms-api-service paths with that
+        // service's own secret. Accepting it as a second account means their charts change a
+        // URL and nothing else.
+        if (api.apiServiceAccountConfigured()
+                && !api.getApiServiceUsername().equals(api.getUsername())) {
+            users.createUser(serviceAccount(api.getApiServiceUsername(), api.getApiServicePassword()));
+        }
+        return users;
+    }
+
+    private static org.springframework.security.core.userdetails.UserDetails serviceAccount(
+            String username, String password) {
+        return User.withUsername(username)
                 // {noop}: the credential is a shared service account supplied as plaintext in the
                 // environment, so hashing it protects nothing that is not already readable -- and
                 // Basic auth authenticates every single request, where a BCrypt comparison would
                 // cost more than the message handling it guards.
-                .password("{noop}" + api.getPassword())
+                .password("{noop}" + password)
                 .authorities("ROLE_SERVICE")
-                .build());
+                .build();
     }
 
     @Bean

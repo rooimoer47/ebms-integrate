@@ -27,7 +27,9 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     @Transactional
     public EbmsMessage save(EbmsMessage message) {
         MessageEntity entity = toEntity(message);
-        entity.setCreatedAt(Instant.now());
+        Instant now = Instant.now();
+        entity.setCreatedAt(now);
+        entity.setStatusTime(now);
         for (Payload payload : message.payloads()) {
             PayloadEntity pe = new PayloadEntity(UUID.randomUUID(), entity,
                     payload.contentId(), payload.mimeType(), payload.content());
@@ -66,6 +68,9 @@ public class JpaMessageRepositoryAdapter implements MessageRepository {
     @Transactional
     public EbmsMessage update(EbmsMessage message) {
         MessageEntity entity = jpa.findById(message.id()).orElseThrow();
+        if (entity.getStatus() != message.status()) {
+            entity.setStatusTime(Instant.now());
+        }
         entity.setStatus(message.status());
         entity.setRetryCount(message.retryCount());
         entity.setNextRetryAt(message.nextRetryAt());

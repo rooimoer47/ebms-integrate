@@ -25,6 +25,12 @@ public class EbmsSecurityProperties {
         private boolean enabled = true;
         private String username = "";
         private String password = "";
+        /**
+         * Optional second account: the {@code osdbk.ebms.api.service-secret} that cpa-service and
+         * jms-consumer send to the paths absorbed from ebms-api-service.
+         */
+        private String apiServiceUsername = "";
+        private String apiServicePassword = "";
 
         /**
          * Fails startup rather than serving an unauthenticated write API. Without this, forgetting
@@ -39,7 +45,29 @@ public class EbmsSecurityProperties {
                                 + "(EBMS_API_USERNAME / EBMS_API_PASSWORD), or set "
                                 + "ebms.security.api.enabled=false to serve them unauthenticated.");
             }
+            if (enabled && apiServiceUsername.isBlank() != apiServicePassword.isBlank()) {
+                throw new IllegalStateException(
+                        "Only half of the ebms-api-service account is set. Set both "
+                                + "ebms.security.api.api-service-username and -password "
+                                + "(EBMS_API_SERVICE_USERNAME / EBMS_API_SERVICE_PASSWORD), or neither.");
+            }
+            if (enabled && apiServiceAccountConfigured() && apiServiceUsername.equals(username)
+                    && !apiServicePassword.equals(password)) {
+                throw new IllegalStateException(
+                        "The ebms-api-service account has the same username as the service API "
+                                + "account but a different password; one of the two would never work.");
+            }
         }
+
+        public boolean apiServiceAccountConfigured() {
+            return !apiServiceUsername.isBlank() && !apiServicePassword.isBlank();
+        }
+
+        public String getApiServiceUsername() { return apiServiceUsername; }
+        public void setApiServiceUsername(String apiServiceUsername) { this.apiServiceUsername = apiServiceUsername; }
+
+        public String getApiServicePassword() { return apiServicePassword; }
+        public void setApiServicePassword(String apiServicePassword) { this.apiServicePassword = apiServicePassword; }
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }

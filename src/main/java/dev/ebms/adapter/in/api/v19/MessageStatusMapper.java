@@ -1,6 +1,7 @@
 package dev.ebms.adapter.in.api.v19;
 
 import dev.ebms.domain.EbmsMessage;
+import dev.ebms.domain.MessageStatus;
 
 /**
  * Maps our six internal statuses onto the ten of the v19 contract.
@@ -30,17 +31,26 @@ public final class MessageStatusMapper {
     }
 
     public static V19MessageStatus toV19(EbmsMessage message) {
-        return switch (message.status()) {
+        return toV19(message.status(), message.processed(), message.ackRequested());
+    }
+
+    /**
+     * The same mapping from the three columns it reads. Exposed so that a filter on the contract's
+     * status can be turned back into a condition on those columns by enumerating them, rather
+     * than by a second, hand-written inverse that could drift from this one.
+     */
+    public static V19MessageStatus toV19(MessageStatus status, boolean processed, boolean ackRequested) {
+        return switch (status) {
             // Inbound. The contract treats "fetched by the client" as a status; we hold it as
             // a flag, so the flag wins while the status stays RECEIVED.
-            case RECEIVED -> message.processed()
+            case RECEIVED -> processed
                     ? V19MessageStatus.PROCESSED
                     : V19MessageStatus.RECEIVED;
 
             // Outbound, not yet away: queued for a first attempt or awaiting a retry.
             case PENDING_SEND -> V19MessageStatus.CREATED;
 
-            case SENT -> message.ackRequested()
+            case SENT -> ackRequested
                     ? V19MessageStatus.CREATED
                     : V19MessageStatus.DELIVERED;
 
