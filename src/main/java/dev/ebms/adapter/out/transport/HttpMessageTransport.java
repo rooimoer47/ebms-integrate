@@ -61,10 +61,14 @@ public class HttpMessageTransport implements MessageTransport {
             if (!success) {
                 log.warn("Remote MSH returned HTTP {}", response.getStatusCode());
             }
-            return new TransportResult(success, response.getBody(), response.getHeaders().getContentType());
+            return new TransportResult(success, response.getBody(), response.getHeaders().getContentType(),
+                    success ? null : "HTTP " + response.getStatusCode());
         } catch (RestClientException e) {
+            // A 4xx or 5xx lands here too: retrieve() turns it into a RestClientResponseException,
+            // whose message carries the status and the start of the partner's response body --
+            // which is what an operator reading the delivery log needs.
             log.warn("Transport error sending to {}: {}", url, e.getMessage());
-            return new TransportResult(false, null, null);
+            return TransportResult.failed(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
         }
     }
 

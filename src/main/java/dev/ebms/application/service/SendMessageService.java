@@ -2,12 +2,14 @@ package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.SendMessageUseCase;
 import dev.ebms.application.port.out.CpaRepository;
+import dev.ebms.application.port.out.DeliveryLog;
 import dev.ebms.application.port.out.InboundMessageParser;
 import dev.ebms.application.port.out.MessageEventPublisher;
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.application.port.out.MessageTransport;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
 import dev.ebms.domain.Cpa;
+import dev.ebms.domain.DeliveryAttempt;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
@@ -36,6 +38,7 @@ public class SendMessageService implements SendMessageUseCase {
     private final InboundMessageParser inboundParser;
     private final MeterRegistry meterRegistry;
     private final MessageEventPublisher eventPublisher;
+    private final DeliveryLog deliveryLog;
 
     @Value("${ebms.msh-id}")
     private String mshId;
@@ -43,7 +46,7 @@ public class SendMessageService implements SendMessageUseCase {
     public SendMessageService(MessageRepository messageRepository, CpaRepository cpaRepository,
                               MessageTransport transport, OutboundMessageSerializer serializer,
                               InboundMessageParser inboundParser, MeterRegistry meterRegistry,
-                              MessageEventPublisher eventPublisher) {
+                              MessageEventPublisher eventPublisher, DeliveryLog deliveryLog) {
         this.messageRepository = messageRepository;
         this.cpaRepository = cpaRepository;
         this.transport = transport;
@@ -51,6 +54,7 @@ public class SendMessageService implements SendMessageUseCase {
         this.inboundParser = inboundParser;
         this.meterRegistry = meterRegistry;
         this.eventPublisher = eventPublisher;
+        this.deliveryLog = deliveryLog;
     }
 
     /**
@@ -145,6 +149,7 @@ public class SendMessageService implements SendMessageUseCase {
             OutboundMessageSerializer.SerializedMessage serialized = serializer.serialize(message, cpa.recipientCert());
             MessageTransport.TransportResult result = transport.send(cpa.transportUrl(),
                     serialized.body(), serialized.contentType());
+            recordAttempt(message, cpa, result);
 
             if (result.success()) {
                 log.info("Message {} sent to {}", message.messageId(), cpa.transportUrl());
@@ -174,6 +179,26 @@ public class SendMessageService implements SendMessageUseCase {
             sample.stop(Timer.builder("ebms.send.duration")
                     .tag("cpa_id", cpa.cpaId())
                     .register(meterRegistry));
+        }
+    }
+
+    /**
+     * Writes the attempt to the delivery log before the message's status moves on.
+     *
+     * <p>A failure to record is logged and swallowed, never thrown. The partner has the message
+     * by now; if recording threw here, the status update below would not happen, the retry poll
+     * would find the message still PENDING_SEND, and the partner would receive it again. A gap
+     * in the history is the lesser harm.
+     */
+    private void recordAttempt(EbmsMessage message, Cpa cpa, MessageTransport.TransportResult result) {
+        try {
+            deliveryLog.record(new DeliveryAttempt(message.messageId(), Instant.now(),
+                    cpa.transportUrl(),
+                    result.success() ? DeliveryAttempt.Outcome.SUCCEEDED : DeliveryAttempt.Outcome.FAILED,
+                    result.success() ? null : result.error()));
+        } catch (RuntimeException e) {
+            log.error("Could not record delivery attempt for message {}", message.messageId(), e);
+            meterRegistry.counter("ebms.delivery_log.write_failures").increment();
         }
     }
 

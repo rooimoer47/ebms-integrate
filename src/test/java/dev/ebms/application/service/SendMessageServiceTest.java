@@ -2,6 +2,7 @@ package dev.ebms.application.service;
 
 import dev.ebms.application.port.in.SendMessageUseCase;
 import dev.ebms.application.port.out.CpaRepository;
+import dev.ebms.application.port.out.DeliveryLog;
 import dev.ebms.application.port.out.InboundMessageParser;
 import dev.ebms.application.port.out.MessageRepository;
 import dev.ebms.application.port.out.MessageTransport;
@@ -9,6 +10,7 @@ import dev.ebms.application.port.out.MessageTransport.TransportResult;
 import dev.ebms.application.port.out.OutboundMessageSerializer;
 import dev.ebms.application.port.out.OutboundMessageSerializer.SerializedMessage;
 import dev.ebms.domain.Cpa;
+import dev.ebms.domain.DeliveryAttempt;
 import dev.ebms.domain.EbmsMessage;
 import dev.ebms.domain.MessageStatus;
 import dev.ebms.domain.Party;
@@ -40,14 +42,70 @@ class SendMessageServiceTest {
     @Mock MessageTransport transport;
     @Mock OutboundMessageSerializer serializer;
     @Mock InboundMessageParser inboundParser;
+    @Mock DeliveryLog deliveryLog;
 
     SendMessageService service;
+    SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setup() {
+        meterRegistry = new SimpleMeterRegistry();
         service = new SendMessageService(messageRepository, cpaRepository,
-                transport, serializer, inboundParser, new SimpleMeterRegistry(), (event, msg) -> {});
+                transport, serializer, inboundParser, meterRegistry, (event, msg) -> {}, deliveryLog);
         ReflectionTestUtils.setField(service, "mshId", "msh.test");
+    }
+
+    // ---------- P4-B2: every attempt is recorded ----------
+
+    @Test
+    void attemptSend_success_recordsASucceededAttemptToTheCpaEndpoint() {
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(transport.send(any(), any(), any())).thenReturn(new TransportResult(true, new byte[0], null));
+
+        service.attemptSend(outbound("msg-101@test"), cpa());
+
+        DeliveryAttempt attempt = recordedAttempt();
+        assertThat(attempt.messageId()).isEqualTo("msg-101@test");
+        assertThat(attempt.uri()).isEqualTo("http://partner-a.example.com/ebms/msh");
+        assertThat(attempt.outcome()).isEqualTo(DeliveryAttempt.Outcome.SUCCEEDED);
+        assertThat(attempt.errorMessage()).isNull();
+    }
+
+    @Test
+    void attemptSend_failure_recordsTheReason() {
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(transport.send(any(), any(), any()))
+                .thenReturn(TransportResult.failed("500 Internal Server Error: \"partner down\""));
+
+        service.attemptSend(outbound("msg-102@test"), cpa());
+
+        DeliveryAttempt attempt = recordedAttempt();
+        assertThat(attempt.outcome()).isEqualTo(DeliveryAttempt.Outcome.FAILED);
+        assertThat(attempt.errorMessage()).contains("partner down");
+    }
+
+    /**
+     * The partner already has the message. If recording threw, the status would never move on,
+     * the retry poll would see PENDING_SEND, and the partner would get it twice.
+     */
+    @Test
+    void attemptSend_whenTheLogCannotBeWritten_stillMovesTheStatusOn() {
+        when(serializer.serialize(any(), any())).thenReturn(new SerializedMessage(new byte[]{1}, "text/xml"));
+        when(transport.send(any(), any(), any())).thenReturn(new TransportResult(true, new byte[0], null));
+        doThrow(new IllegalStateException("db down")).when(deliveryLog).record(any());
+
+        service.attemptSend(outbound("msg-103@test"), cpa());
+
+        ArgumentCaptor<EbmsMessage> captor = ArgumentCaptor.forClass(EbmsMessage.class);
+        verify(messageRepository).update(captor.capture());
+        assertThat(captor.getValue().status()).isEqualTo(MessageStatus.SENT);
+        assertThat(meterRegistry.counter("ebms.delivery_log.write_failures").count()).isEqualTo(1.0);
+    }
+
+    private DeliveryAttempt recordedAttempt() {
+        ArgumentCaptor<DeliveryAttempt> captor = ArgumentCaptor.forClass(DeliveryAttempt.class);
+        verify(deliveryLog).record(captor.capture());
+        return captor.getValue();
     }
 
     @Test

@@ -47,6 +47,10 @@ ebms:
   # refuse agreements that work today. REJECT matches the hardened ebms-core fork.
   cpa-endpoint-policy: ${EBMS_CPA_ENDPOINT_POLICY:WARN}
   msh-id: ${MSH_ID:msh.ebms.dev}
+  # Per-attempt delivery history behind the console's delivery log and jms-consumer's failure
+  # counts. Purged hourly; throttling looks back minutes, operators days.
+  delivery-log:
+    retention: ${EBMS_DELIVERY_LOG_RETENTION:30d}
   security:
     # HTTP Basic over /service/rest/**, /api/** and the non-probe actuator endpoints. All three
     # clients already send these credentials. Startup fails if they are absent and auth is on.
